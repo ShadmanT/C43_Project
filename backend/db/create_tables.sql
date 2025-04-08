@@ -40,8 +40,8 @@ CREATE TABLE StockPrice (
     low NUMERIC,
     close NUMERIC,
     volume BIGINT,
-    symbol TEXT
-    PRIMARY KEY (symbol, date)
+    symbol TEXT,
+    PRIMARY KEY (symbol, date),
 );
 
 -- StockList Table
