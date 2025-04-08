@@ -34,13 +34,13 @@ CREATE TABLE Stock (
 
 -- StockPrice Table
 CREATE TABLE StockPrice (
-    symbol VARCHAR(10) REFERENCES Stock(symbol) ON DELETE CASCADE,
     date DATE,
-    volume BIGINT,
+    open NUMERIC,
     high NUMERIC,
     low NUMERIC,
-    open NUMERIC,
     close NUMERIC,
+    volume BIGINT,
+    symbol TEXT
     PRIMARY KEY (symbol, date)
 );
 
