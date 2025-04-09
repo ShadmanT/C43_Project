@@ -80,7 +80,9 @@ exports.deleteFriend = async (req, res) => {
   const friendId = req.params.friendId;
   try {
     await pool.query(`
-      DELETE FROM FriendsWith WHERE (user_id1 = $1 AND user_id2 = $2) OR (user_id1 = $2 AND user_id2 = $1)
+      DELETE FROM FriendsWith
+      WHERE (user_id1 = $1 AND user_id2 = $2)
+            OR (user_id1 = $2 AND user_id2 = $1)
     `, [userId, friendId]);
     res.status(204).send();
   } catch (err) {
