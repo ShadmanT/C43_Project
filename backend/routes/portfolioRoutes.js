@@ -5,167 +5,174 @@ const router = express.Router();
 // Simulate user auth from x-user-id
 const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
 
+// creating portfolio
+// {name}
 router.post('/create', async (req, res) => {
   const userId = getUserId(req);
   const { name } = req.body;
 
+  // check inpufs
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Portfolio name is required' });
   }
 
   try {
+    // inserting new portfolio with balance of $0
     const result = await pool.query(
       `INSERT INTO Portfolio (user_id, name, cash_balance)
        VALUES ($1, $2, $3)
        RETURNING portfolio_id`,
       [userId, name.trim(), 0.00]
     );
+
+    // return the portfolio id and a success or error message
     res.status(201).json({
       message: 'Portfolio created',
       portfolioId: result.rows[0].portfolio_id
     });
   } catch (err) {
-    console.error('❌ Portfolio creation failed:', err);
+    console.error('Portfolio creation failed:', err);
     res.status(500).json({ error: 'Failed to create portfolio' });
   }
 });
   
-  /**
-   * POST /portfolio/deposit
-   * Add cash to a portfolio
-   * Body: { portfolioId, amount }
-   */
-  router.post('/deposit', async (req, res) => {
-    const { portfolioId, amount } = req.body;
 
-    if (amount <= 0) {
-        return res.status(400).json({ error: 'Amount must be greater than 0' });
-    } 
-    if (!portfolioId || isNaN(portfolioId)) {
-        return res.status(400).json({ error: 'Invalid portfolioId' });
-    }
-           
-  
-    try {
-      await pool.query(
-        `UPDATE Portfolio SET cash_balance = cash_balance + $1 WHERE portfolio_id = $2`,
-        [amount, portfolioId]
-      );
-      res.status(200).json({ message: `Deposited $${amount}` });
-    } catch (err) {
-      console.error('❌ Deposit failed:', err);
-      res.status(500).json({ error: 'Deposit failed' });
-    }
-  });
-  
-  /**
-   * POST /portfolio/withdraw
-   * Withdraw cash from a portfolio
-   * Body: { portfolioId, amount }
-   */
-  router.post('/withdraw', async (req, res) => {
-    const { portfolioId, amount } = req.body;
+  // depositing cash into portfolio
+  // { portfolioId, amount }
+router.post('/deposit', async (req, res) => {
+  const { portfolioId, amount } = req.body;
 
-    if (amount <= 0) {
-        return res.status(400).json({ error: 'Amount must be greater than 0' });
+  // check inputs
+  if (amount <= 0) {
+      return res.status(400).json({ error: 'Amount must be greater than 0' });
+  } 
+  if (!portfolioId || isNaN(portfolioId)) {
+      return res.status(400).json({ error: 'Invalid portfolioId' });
+  }
+          
+  // adding cash amount to cash_balance of specific portfolio id
+  try {
+    await pool.query(
+      `UPDATE Portfolio SET cash_balance = cash_balance + $1 WHERE portfolio_id = $2`,
+      [amount, portfolioId]
+    );
+    res.status(200).json({ message: `Deposited $${amount}` });
+  } catch (err) {
+    console.error('Deposit failed:', err);
+    res.status(500).json({ error: 'Deposit failed' });
+  }
+});
+  
+
+// withdraw amount from portfolio (subtract cash_balance)
+// { portfolioId, amount }
+router.post('/withdraw', async (req, res) => {
+  const { portfolioId, amount } = req.body;
+
+  // check inputs
+  if (amount <= 0) {
+      return res.status(400).json({ error: 'Amount must be greater than 0' });
+  }
+  if (!portfolioId || isNaN(portfolioId)) {
+      return res.status(400).json({ error: 'Invalid portfolioId' });
+  }
+
+  // check if user has enough money to withdraw their wanted amount
+  try {
+    const result = await pool.query(
+      `SELECT cash_balance FROM Portfolio WHERE portfolio_id = $1`,
+      [portfolioId]
+    );
+    const balance = parseFloat(result.rows[0]?.cash_balance ?? 0);
+    if (balance < amount) {
+      return res.status(400).json({ error: 'Insufficient funds' });
     }
 
-    if (!portfolioId || isNaN(portfolioId)) {
-        return res.status(400).json({ error: 'Invalid portfolioId' });
-    }
-      
-      
-  
-    try {
-      const result = await pool.query(
-        `SELECT cash_balance FROM Portfolio WHERE portfolio_id = $1`,
-        [portfolioId]
-      );
-      const balance = parseFloat(result.rows[0]?.cash_balance ?? 0);
-      if (balance < amount) {
-        return res.status(400).json({ error: 'Insufficient funds' });
-      }
-  
-      await pool.query(
-        `UPDATE Portfolio SET cash_balance = cash_balance - $1 WHERE portfolio_id = $2`,
-        [amount, portfolioId]
-      );
-      res.status(200).json({ message: `Withdrew $${amount}` });
-    } catch (err) {
-      console.error('❌ Withdraw failed:', err);
-      res.status(500).json({ error: 'Withdraw failed' });
-    }
-  });
+    // if user has enough then subtract from cash_balance
+    await pool.query(
+      `UPDATE Portfolio SET cash_balance = cash_balance - $1 WHERE portfolio_id = $2`,
+      [amount, portfolioId]
+    );
+    res.status(200).json({ message: `Withdrew $${amount}` });
+  } catch (err) {
+    console.error('Withdraw failed:', err);
+    res.status(500).json({ error: 'Withdraw failed' });
+  }
+});
 
-  router.post('/add-stock', async (req, res) => {
-    const { portfolioId, symbol, numShares } = req.body;
+// allow user to purchase stock to add to their portfolio
+// body: { portfolioId, symbol, numShares}
+router.post('/add-stock', async (req, res) => {
+  const { portfolioId, symbol, numShares } = req.body;
   
-    if (numShares <= 0) {
-      return res.status(400).json({ error: 'Number of shares must be greater than 0' });
-    }
-  
-    // ✅ Check if symbol exists in Stock table
-    const symbolCheck = await pool.query(
-      `SELECT symbol FROM Stock WHERE symbol = $1`,
+  // check inputs
+  if (numShares <= 0) {
+    return res.status(400).json({ error: 'Number of shares must be greater than 0' });
+  }
+
+  // check if the symbol they want to add stock to exists
+  const symbolCheck = await pool.query(
+    `SELECT symbol FROM Stock WHERE symbol = $1`,
+    [symbol]
+  );
+  if (symbolCheck.rows.length === 0) {
+    return res.status(404).json({ error: 'Stock symbol not found' });
+  }
+
+  try {
+    // get the most recent stock price
+    const priceResult = await pool.query(
+      `SELECT close FROM StockPrice WHERE symbol = $1 ORDER BY date DESC LIMIT 1`,
       [symbol]
     );
-    if (symbolCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Stock symbol not found' });
+    if (priceResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Stock price not found' });
     }
-  
-    try {
-      // Get latest stock price
-      const priceResult = await pool.query(
-        `SELECT close FROM StockPrice WHERE symbol = $1 ORDER BY date DESC LIMIT 1`,
-        [symbol]
-      );
-      if (priceResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Stock price not found' });
-      }
-  
-      const stockPrice = parseFloat(priceResult.rows[0].close);
-      const totalCost = stockPrice * numShares;
-  
-      // Check if portfolio has enough cash
-      const cashResult = await pool.query(
-        `SELECT cash_balance FROM Portfolio WHERE portfolio_id = $1`,
-        [portfolioId]
-      );
-      const cash = parseFloat(cashResult.rows[0].cash_balance);
-      if (cash < totalCost) {
-        return res.status(400).json({ error: 'Insufficient funds' });
-      }
-  
-      // Upsert into PortfolioHolding
-      await pool.query(`
-        INSERT INTO PortfolioHolding (portfolio_id, symbol, num_shares)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (portfolio_id, symbol)
-        DO UPDATE SET num_shares = PortfolioHolding.num_shares + $3
-      `, [portfolioId, symbol, numShares]);
-  
-      // Deduct from cash_balance
-      await pool.query(`
-        UPDATE Portfolio SET cash_balance = cash_balance - $1 WHERE portfolio_id = $2
-      `, [totalCost, portfolioId]);
-  
-      res.status(200).json({ message: 'Stock added successfully' });
-    } catch (err) {
-      console.error('❌ Add stock failed:', err);
-      res.status(500).json({ error: 'Add stock failed' });
+
+    const stockPrice = parseFloat(priceResult.rows[0].close);
+    const totalCost = stockPrice * numShares;
+
+    // check if the user has enough money to buy the stock (check cash_balance in their portfolio)
+    const cashResult = await pool.query(
+      `SELECT cash_balance FROM Portfolio WHERE portfolio_id = $1`,
+      [portfolioId]
+    );
+    const cash = parseFloat(cashResult.rows[0].cash_balance);
+    if (cash < totalCost) {
+      return res.status(400).json({ error: 'Insufficient funds' });
     }
-  });
+
+    // update PortfolioHolding
+    await pool.query(`
+      INSERT INTO PortfolioHolding (portfolio_id, symbol, num_shares)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (portfolio_id, symbol)
+      DO UPDATE SET num_shares = PortfolioHolding.num_shares + $3
+    `, [portfolioId, symbol, numShares]);
+
+    // subtract from user's cash_balance
+    await pool.query(`
+      UPDATE Portfolio SET cash_balance = cash_balance - $1 WHERE portfolio_id = $2
+    `, [totalCost, portfolioId]);
+
+    res.status(200).json({ message: 'Stock added successfully' });
+  } catch (err) {
+    console.error('Add stock failed:', err);
+    res.status(500).json({ error: 'Add stock failed' });
+  }
+});
   
 
 /**
  * GET /portfolio/view
  * Lists portfolios with cash, holdings, and total value
  */
+// gets all the user's portfolios, their cash balance, and total market value
 router.get('/view', async (req, res) => {
   const userId = getUserId(req);
 
   try {
-    // Get portfolios
+    // get all portfolios
     const portfoliosResult = await pool.query(
       `SELECT * FROM Portfolio WHERE user_id = $1`,
       [userId]
@@ -173,29 +180,33 @@ router.get('/view', async (req, res) => {
 
     const portfolios = [];
 
+    // get the holdings for all the portfolios
     for (const portfolio of portfoliosResult.rows) {
-        const holdingsRes = await pool.query(
-            `SELECT h.symbol, h.num_shares, sp.close AS latest_price
-             FROM PortfolioHolding h
-             JOIN (
-               SELECT symbol, close
-               FROM StockPrice sp1
-               WHERE (symbol, date) IN (
-                 SELECT symbol, MAX(date) AS latest_date
-                 FROM StockPrice
-                 GROUP BY symbol
-               )
-             ) sp ON sp.symbol = h.symbol
-             WHERE h.portfolio_id = $1`,
-            [portfolio.portfolio_id]
-          );
-
+      const holdingsRes = await pool.query(
+          `SELECT h.symbol, h.num_shares, sp.close AS latest_price
+            FROM PortfolioHolding h
+            JOIN (
+              SELECT symbol, close
+              FROM StockPrice sp1
+              WHERE (symbol, date) IN (
+                SELECT symbol, MAX(date) AS latest_date
+                FROM StockPrice
+                GROUP BY symbol
+              )
+            ) sp ON sp.symbol = h.symbol
+            WHERE h.portfolio_id = $1`,
+          [portfolio.portfolio_id]
+      );
+        
       const holdings = holdingsRes.rows;
+
+      // calculating the total market value
       let marketValue = 0;
       holdings.forEach(h => {
         marketValue += h.num_shares * parseFloat(h.latest_price);
       });
 
+      // push the portfolio data into an array
       portfolios.push({
         portfolioId: portfolio.portfolio_id,
         name: portfolio.name,
@@ -205,9 +216,10 @@ router.get('/view', async (req, res) => {
       });
     }
 
+    // return the array of portfolios (with the wanted data and info) or error
     res.json({ portfolios });
   } catch (err) {
-    console.error('❌ View portfolio failed:', err);
+    console.error('View portfolio failed:', err);
     res.status(500).json({ error: 'View failed' });
   }
 });
