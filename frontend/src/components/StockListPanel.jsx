@@ -127,7 +127,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         visibility: item.visibility,
         user_id: item.user_id,
         shared_by: item.shared_by,
-        owner_username: item.shared_by || null,
+        owner_username: item.shared_by,
         items: []
       };
     }

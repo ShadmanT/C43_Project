@@ -5,7 +5,8 @@ const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
 exports.getAllStockLists = async (req, res) => {
   const userId = getUserId(req);
   try {
-    const { rows } = await pool.query(`
+    const { rows } = await pool.query(
+      `
       (
         SELECT sl.*, sli.symbol, sli.num_shares, NULL AS shared_by
         FROM StockList sl
@@ -23,16 +24,19 @@ exports.getAllStockLists = async (req, res) => {
       )
       UNION ALL
       (
-        SELECT sl.*, sli.symbol, sli.num_shares, NULL AS shared_by
+        SELECT sl.*, sli.symbol, sli.num_shares, ua.username AS shared_by
         FROM StockList sl
         LEFT JOIN StockListItem sli ON sl.list_id = sli.list_id
+        JOIN UserAccount ua ON sl.user_id = ua.user_id
         WHERE sl.visibility = 'public'
           AND sl.user_id != $1
           AND sl.list_id NOT IN (
             SELECT list_id FROM StockListShare WHERE shared_with = $1
           )
       )
-    `, [userId]);
+      `,
+      [userId]
+    );
 
     res.status(200).json(rows);
   } catch (err) {
@@ -40,6 +44,7 @@ exports.getAllStockLists = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.getSharedStockLists = async (req, res) => {
   const userId = getUserId(req);
