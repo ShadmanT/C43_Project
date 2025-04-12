@@ -60,14 +60,23 @@ CREATE TABLE StockListItem (
     PRIMARY KEY (list_id, symbol)
 );
 
+-- StockListShare Table
+CREATE TABLE StockListShare (
+    list_id INTEGER REFERENCES StockList(list_id) ON DELETE CASCADE,
+    shared_with INTEGER REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    PRIMARY KEY (list_id, shared_with)
+);
+
 -- Review Table
 CREATE TABLE Review (
     review_id SERIAL PRIMARY KEY,
     list_id INTEGER REFERENCES StockList(list_id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES UserAccount(user_id) ON DELETE CASCADE,
     content TEXT,
-    last_edit TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    last_edit TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_user_list_review UNIQUE (list_id, user_id)
 );
+
 
 -- FriendRequest Table
 CREATE TABLE FriendRequest (
