@@ -19,7 +19,7 @@ exports.createOrUpdateReview = async (req, res) => {
 
     res.status(201).json({ message: 'Review submitted' });
   } catch (err) {
-    console.error('❌ Review submission failed:', err);
+    console.error('Review submission failed:', err);
     res.status(500).json({ error: 'Failed to submit review' });
   }
 };
@@ -68,7 +68,7 @@ exports.getReviewsForList = async (req, res) => {
 
     res.json(reviews.rows);
   } catch (err) {
-    console.error('❌ Fetch reviews failed:', err);
+    console.error(' Fetch reviews failed:', err);
     res.status(500).json({ error: 'Failed to fetch reviews' });
   }
 };
@@ -90,7 +90,7 @@ exports.deleteReview = async (req, res) => {
 
     res.json({ message: 'Review deleted' });
   } catch (err) {
-    console.error('❌ Delete review failed:', err);
+    console.error('Delete review failed:', err);
     res.status(500).json({ error: 'Failed to delete review' });
   }
 };

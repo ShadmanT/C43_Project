@@ -42,7 +42,7 @@ const FriendsPanel = ({ userId }) => {
       alert('Request sent!');
       setRequestInput('');
       await fetchRequests();
-      await fetchFriends(); // ✅ refresh friends too
+      await fetchFriends(); // refresh friends too
     } catch (err) {
       console.error('❌ Failed to send request:', err);
       alert('Failed to send request');
