@@ -241,7 +241,7 @@ router.get('/history', async (req, res) => {
               UNION
               SELECT date, close FROM StockPrice WHERE symbol = $1
             ) AS combined
-            WHERE date >= DATE '2018-02-07' - $2
+            WHERE date >= DATE '2018-02-07' - ($2 || ' days')::INTERVAL
             ORDER BY date ASC
             `,
             [symbol, days]
@@ -259,19 +259,14 @@ router.get('/history', async (req, res) => {
     }
   });
 
- /**
- * GET /api/portfolio/stats?portfolioId=1
- * Returns COV (stddev / avg) and correlation matrix of stocks in the portfolio
- */
-router.get('/stats', async (req, res) => {
+  router.get('/stats', async (req, res) => {
     const { portfolioId } = req.query;
   
     if (!portfolioId || isNaN(portfolioId)) {
-        return res.status(400).json({ error: 'Invalid portfolioId' });
+      return res.status(400).json({ error: 'Invalid portfolioId' });
     }
   
     try {
-      // Get all stock symbols in the portfolio
       const symbolsResult = await pool.query(
         `SELECT symbol FROM PortfolioHolding WHERE portfolio_id = $1`,
         [portfolioId]
@@ -281,35 +276,74 @@ router.get('/stats', async (req, res) => {
       const stats = {};
       const matrix = {};
   
-      for (const symbol of symbols) {
-        const covResult = await pool.query(
-          `SELECT
-              AVG(close) AS avg_price,
-              STDDEV(close) AS stddev_price
-           FROM StockPrice
-           WHERE symbol = $1`,
-          [symbol]
-        );
+      // Calculate market average close per day
+      const marketRes = await pool.query(`
+        SELECT date, AVG(close) AS market_close
+        FROM StockPrice
+        WHERE close IS NOT NULL
+        GROUP BY date
+      `);
+      const marketMap = new Map(marketRes.rows.map(r => [r.date.toISOString().split('T')[0], parseFloat(r.market_close)]));
   
-        const avg = parseFloat(covResult.rows[0]?.avg_price ?? 0);
-        const std = parseFloat(covResult.rows[0]?.stddev_price ?? 0);
-        const cov = avg ? std / avg : null;
-  
-        stats[symbol] = {
-          average: avg.toFixed(2),
-          stddev: std.toFixed(2),
-          cov: cov ? cov.toFixed(4) : null
-        };
-      }
-  
-      // Build correlation matrix
+      // Build correlation matrix and compute stats per symbol
       for (let i = 0; i < symbols.length; i++) {
         const symA = symbols[i];
-        matrix[symA] = {};
+        stats[symA] = {};
   
+        // Get price history for the stock
+        const priceRes = await pool.query(`
+          SELECT date, close FROM StockPrice
+          WHERE symbol = $1 AND close IS NOT NULL
+          ORDER BY date
+        `, [symA]);
+  
+        const returns = [];
+        const marketReturns = [];
+  
+        for (let j = 1; j < priceRes.rows.length; j++) {
+          const prev = priceRes.rows[j - 1];
+          const curr = priceRes.rows[j];
+          const dateStr = curr.date.toISOString().split('T')[0];
+  
+          const stockReturn = Math.log(curr.close / prev.close);
+          const marketPrev = marketMap.get(prev.date.toISOString().split('T')[0]);
+          const marketCurr = marketMap.get(dateStr);
+  
+          if (marketPrev && marketCurr && marketPrev > 0 && marketCurr > 0) {
+            const marketReturn = Math.log(marketCurr / marketPrev);
+            returns.push(stockReturn);
+            marketReturns.push(marketReturn);
+          }
+        }
+  
+        const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0;
+        const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length);
+        const cov = avg !== 0 ? std / avg : null;
+  
+        const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length;
+        const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length);
+  
+        // Correlation
+        let corr = 0;
+        if (returns.length === marketReturns.length && returns.length > 1) {
+          const numerator = returns.map((r, i) => (r - avg) * (marketReturns[i] - meanMarket)).reduce((a, b) => a + b, 0);
+          const denominator = returns.length * std * stdMarket;
+          corr = denominator !== 0 ? numerator / denominator : 0;
+        }
+  
+        const beta = corr * (std / stdMarket);
+  
+        stats[symA] = {
+          average: avg.toFixed(4),
+          stddev: std.toFixed(4),
+          cov: cov ? cov.toFixed(4) : null,
+          beta: isFinite(beta) ? beta.toFixed(4) : null
+        };
+  
+        // Correlation matrix entry
+        matrix[symA] = {};
         for (let j = 0; j < symbols.length; j++) {
           const symB = symbols[j];
-  
           if (symA === symB) {
             matrix[symA][symB] = "1.0000";
           } else {
@@ -317,12 +351,11 @@ router.get('/stats', async (req, res) => {
               `SELECT CORR(a.close, b.close) AS corr
                FROM StockPrice a
                JOIN StockPrice b ON a.date = b.date
-               WHERE a.symbol = $1 AND b.symbol = $2`,
+               WHERE a.symbol = $1 AND b.symbol = $2 AND a.close IS NOT NULL AND b.close IS NOT NULL`,
               [symA, symB]
             );
-  
-            const corr = corrRes.rows[0]?.corr;
-            matrix[symA][symB] = corr ? parseFloat(corr).toFixed(4) : null;
+            const corrVal = corrRes.rows[0]?.corr;
+            matrix[symA][symB] = corrVal ? parseFloat(corrVal).toFixed(4) : null;
           }
         }
       }
@@ -332,12 +365,13 @@ router.get('/stats', async (req, res) => {
         stats,
         correlationMatrix: matrix
       });
+  
     } catch (err) {
       console.error('❌ Portfolio stats failed:', err);
       res.status(500).json({ error: 'Could not calculate stats' });
     }
-  });
-  
+  });  
+
 
   /**
  * POST /api/portfolio/stockprice/add
@@ -489,6 +523,47 @@ router.get('/predict', async (req, res) => {
   } catch (err) {
     console.error('Prediction failed:', err);
     res.status(500).json({ error: 'Prediction failed' });
+  }
+});
+
+// Combined route: Add stock + price
+router.post('/stock/user-add', async (req, res) => {
+  const { symbol, company_name, date, open, high, low, close, volume } = req.body;
+
+  if (!symbol || !company_name || !date || !open || !high || !low || !close || !volume) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Step 1: Add to Stock table (if not exists)
+    await client.query(
+      `INSERT INTO Stock (symbol, company_name)
+       VALUES ($1, $2)
+       ON CONFLICT (symbol) DO NOTHING`,
+      [symbol.toUpperCase(), company_name]
+    );
+
+    // Step 2: Add to StockPrice table
+    await client.query(
+      `INSERT INTO StockPrice (symbol, date, open, high, low, close, volume)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [symbol.toUpperCase(), date, open, high, low, close, volume]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Stock and price data added' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Duplicate price entry for this symbol/date' });
+    }
+    console.error('❌ Full stock add failed:', err);
+    res.status(500).json({ error: 'Failed to add stock and price data' });
+  } finally {
+    client.release();
   }
 });
 

@@ -19,11 +19,12 @@
   },
   "homepage": "https://github.com/ShadmanT/C43_Project#readme",
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
-    "pg": "^8.14.1"
+    "pg": "^8.14.1",
+    "recharts": "^2.15.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

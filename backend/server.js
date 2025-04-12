@@ -13,7 +13,6 @@ const portfolioRoutes = require('./routes/portfolioRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 
 
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -42,8 +41,18 @@ app.get('/prices', async (req, res) => {
     const result = await pool.query('SELECT * FROM StockPrice LIMIT 1');
     res.json(result.rows);
   } catch (err) {
-    console.error('❌ Query failed:', err);
+    console.error('Query failed:', err);
     res.status(500).send('Query failed');
+  }
+});
+
+app.get('/symbols', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT DISTINCT symbol FROM StockPrice ORDER BY symbol');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to load symbols');
   }
 });
 

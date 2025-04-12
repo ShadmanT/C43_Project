@@ -2,14 +2,14 @@ import { useState } from 'react';
 import axios from 'axios';
 
 const LoginForm = ({ setUserId }) => {
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const res = await axios.post('http://localhost:3000/auth/login', {
-        email,
+        emailOrUsername,
         password,
       });
       setUserId(res.data.userId);
@@ -23,10 +23,10 @@ const LoginForm = ({ setUserId }) => {
     <form onSubmit={handleLogin}>
       <h2>Login</h2>
       <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        type="text"
+        placeholder="Email or Username"
+        value={emailOrUsername}
+        onChange={(e) => setEmailOrUsername(e.target.value)}
         required
       /><br />
       <input

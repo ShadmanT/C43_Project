@@ -1,6 +1,6 @@
 // routes/auth.js
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const router = express.Router();
 
@@ -22,19 +22,24 @@ router.post('/signup', async (req, res) => {
 
 // LOGIN
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { emailOrUsername, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM UserAccount WHERE email = $1', [email]);
-    if (result.rows.length === 0) return res.status(401).json({ error: 'User not found' });
+    const result = await pool.query(
+      `SELECT * FROM UserAccount WHERE email = $1 OR username = $1`,
+      [emailOrUsername]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(401).json({ error: 'User not found' });
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) return res.status(401).json({ error: 'Invalid password' });
+    if (!match)
+      return res.status(401).json({ error: 'Invalid password' });
 
-    // Simulate auth for now with user_id
     res.json({ message: 'Login successful', userId: user.user_id });
   } catch (err) {
-    console.error(' Login failed:', err);
+    console.error('Login failed:', err);
     res.status(500).json({ error: 'Login failed' });
   }
 });

@@ -92,3 +92,12 @@ CREATE TABLE FriendsWith (
     user_id2 INTEGER REFERENCES UserAccount(user_id) ON DELETE CASCADE,
     PRIMARY KEY (user_id1, user_id2)
 );
+
+DELETE FROM StockPrice
+WHERE date IS NULL
+   OR open IS NULL
+   OR high IS NULL
+   OR low IS NULL
+   OR close IS NULL
+   OR volume IS NULL
+   OR symbol IS NULL;
