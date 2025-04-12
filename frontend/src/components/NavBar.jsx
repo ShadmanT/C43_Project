@@ -8,7 +8,7 @@ const NavBar = () => (
     <Link to="/data">Stock Analysis</Link> |{" "}
     <Link to="/add-stock">Add Stock</Link> |{" "}
     <Link to="/stocklists">Stock Lists</Link> |{" "}
-    <Link to="/friends">Friends</Link> |{" "}
+    <Link to="/friends">Friends</Link>
   </nav>
 );
 

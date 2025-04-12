@@ -49,7 +49,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while creating list.');
       }
     } catch (err) {
-      console.error('Create list failed:', err.response?.data || err.message);
+      console.error('❌ Create list failed:', err.response?.data || err.message);
       alert(`Failed to create list: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
@@ -144,37 +144,39 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
   const otherLists = groupedArray.filter(list => list.user_id !== parsedUserId);
 
   const renderList = (list) => (
-    <div key={list.list_id} className="mb-8 p-4 border border-gray-600 rounded-xl shadow-lg bg-[#1e1e1e]">
-      <div className="flex justify-between items-center">
-        <div>
-          <strong>{list.list_name}</strong> ({list.visibility})
+    <div key={list.list_id} className="mb-6 p-4 border border-gray-300 rounded-md bg-white">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-lg font-medium">
+          {list.list_name} ({list.visibility})
           {list.user_id !== parsedUserId && (
-            <span className="ml-2 text-sm text-gray-400">
+            <span className="ml-2 text-sm text-gray-600">
               owned by {list.owner_username || 'unknown'}
             </span>
           )}
         </div>
         {list.user_id === parsedUserId && (
-          <button onClick={() => deleteStockList(list.list_id)} className="text-red-500 hover:underline">
+          <button onClick={() => deleteStockList(list.list_id)} className="text-sm text-red-600 underline">
             Delete
           </button>
         )}
       </div>
 
-      <ul className="ml-4 text-sm text-gray-300 mt-2">
+      <ul className="pl-4 text-sm mb-3">
         {list.items.map((item, idx) => (
-          <li key={idx}>• {item.symbol}: {item.num_shares} shares</li>
+          <li key={idx} className="ml-2 list-disc">
+            {item.symbol}: {item.num_shares} shares
+          </li>
         ))}
       </ul>
 
       {list.user_id === parsedUserId && (
-        <div className="mt-4 text-sm flex flex-col gap-3">
-          <div>
-            <label className="mr-2">Change visibility:</label>
+        <div className="mt-2 text-sm space-y-2">
+          <div className="flex gap-2 items-center">
+            <label>Change visibility:</label>
             <select
               value={list.visibility}
               onChange={(e) => updateVisibility(list.list_id, e.target.value)}
-              className="border p-1 text-sm"
+              className="border p-1"
             >
               <option value="private">Private</option>
               <option value="public">Public</option>
@@ -182,14 +184,14 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
           </div>
 
           {list.visibility !== 'public' && (
-            <div>
-              <label className="mr-2">Share with:</label>
+            <div className="flex gap-2 items-center">
+              <label>Share with:</label>
               <select
                 value={shareTargets[list.list_id] || ''}
                 onChange={(e) =>
                   setShareTargets(prev => ({ ...prev, [list.list_id]: e.target.value }))
                 }
-                className="border p-1 mr-2"
+                className="border p-1"
               >
                 <option value="">Select friend</option>
                 {friends.map(f => (
@@ -200,7 +202,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
               </select>
               <button
                 onClick={() => shareListWithFriend(list.list_id)}
-                className="bg-green-500 text-white px-2 py-1 rounded"
+                className="bg-blue-500 text-white px-3 py-1 rounded"
               >
                 Share
               </button>
@@ -216,48 +218,54 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
   );
 
   return (
-    <div className="p-4 border rounded-lg shadow space-y-4">
-      <h2 className="text-xl font-semibold">Create a Stock List</h2>
+    <div className="min-h-screen flex justify-center bg-white text-black px-4 py-8">
+      <div className="w-full max-w-3xl space-y-8">
+        <h2 className="text-2xl font-bold">Create a Stock List</h2>
 
-      <div className="mb-6">
-        <input
-          placeholder="List Name"
-          value={listName}
-          onChange={(e) => setListName(e.target.value)}
-          className="border p-1 mr-2"
-        />
-        <select
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-          className="border p-1 mr-2"
-        >
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-        <input
-          placeholder="Items (e.g., AAPL:5, GOOG:3)"
-          value={items}
-          onChange={(e) => setItems(e.target.value)}
-          className="border p-1 mr-2 w-[300px]"
-        />
-        <button onClick={createStockList} className="bg-blue-500 text-white px-3 py-1 rounded">
-          Create
-        </button>
+        <div className="space-y-2">
+          <input
+            placeholder="List Name"
+            value={listName}
+            onChange={(e) => setListName(e.target.value)}
+            className="border p-2 w-full rounded"
+          />
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value)}
+            className="border p-2 w-full rounded"
+          >
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+          </select>
+          <input
+            placeholder="Items (e.g., AAPL:5, GOOG:3)"
+            value={items}
+            onChange={(e) => setItems(e.target.value)}
+            className="border p-2 w-full rounded"
+          />
+          <button onClick={createStockList} className="bg-blue-600 text-white px-4 py-2 rounded">
+            Create
+          </button>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold">Your Stock Lists</h2>
+          {yourLists.length === 0 ? (
+            <p className="text-sm text-gray-600">You have no stock lists created.</p>
+          ) : (
+            yourLists.map(renderList)
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold">Other Stock Lists</h2>
+          {otherLists.length === 0 ? (
+            <p className="text-sm text-gray-600">No shared or public stock lists to show.</p>
+          ) : (
+            otherLists.map(renderList)
+          )}
+        </div>
       </div>
-
-      <h2 className="text-lg font-semibold mb-2">Your Stock Lists</h2>
-      {yourLists.length === 0 ? (
-        <p className="text-sm text-gray-500">You have no stock lists created.</p>
-      ) : (
-        yourLists.map(renderList)
-      )}
-
-      <h2 className="text-lg font-semibold mt-6 mb-2">Other Stock Lists</h2>
-      {otherLists.length === 0 ? (
-        <p className="text-sm text-gray-500">No shared or public stock lists to show.</p>
-      ) : (
-        otherLists.map(renderList)
-      )}
     </div>
   );
 };

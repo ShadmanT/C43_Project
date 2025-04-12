@@ -63,7 +63,7 @@ function App() {
       setOwnedLists(ownedRes.data);
       setSharedLists(sharedRes.data);
     } catch (err) {
-      console.error('Failed to refresh stock lists', err);
+      console.error('Failed to fetch stock lists', err);
     }
   };
 
@@ -77,73 +77,92 @@ function App() {
 
   if (!userId) {
     return (
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
-        <LoginForm setUserId={setUserId} />
-        <hr />
-        <RegisterForm onRegister={setUserId} />
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-3xl p-8 space-y-10 bg-white border rounded shadow">
+          <LoginForm setUserId={setUserId} />
+          <hr />
+          <RegisterForm onRegister={setUserId} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <p className="text-sm text-gray-500 mb-2">Logged in as user {userId}</p>
-      <button onClick={() => setUserId(null)}>Log Out</button>
-      <NavBar />
+    <div className="min-h-screen px-4 py-6 flex justify-center">
+      <div className="w-full max-w-5xl space-y-6">
+        <div className="flex justify-between items-center">
+          <p className="text-sm">Logged in as user {userId}</p>
+          <button
+            onClick={() => setUserId(null)}
+            className="text-sm underline"
+          >
+            Log Out
+          </button>
+        </div>
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <StockListPanel
-              userId={userId}
-              ownedLists={ownedLists}
-              sharedLists={sharedLists}
-              refreshLists={refreshLists}
+        <NavBar />
+
+        <div className="pt-2">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <StockListPanel
+                  userId={userId}
+                  ownedLists={ownedLists}
+                  sharedLists={sharedLists}
+                  refreshLists={refreshLists}
+                />
+              }
             />
-          }
-        />
-        <Route
-          path="/stocklists"
-          element={
-            <>
-              <StockListPanel
-                userId={userId}
-                ownedLists={ownedLists}
-                sharedLists={sharedLists}
-                refreshLists={refreshLists}
-              />
-            </>
-          }
-        />
-        <Route path="/friends" element={<FriendsPanel userId={userId} />} />
-        <Route
-          path="/portfolio"
-          element={
-            <PortfolioPage
-              userId={userId}
-              portfolios={portfolios}
-              refreshPortfolios={refreshPortfolios}
+            <Route
+              path="/stocklists"
+              element={
+                <>
+                  <StockListPanel
+                    userId={userId}
+                    ownedLists={ownedLists}
+                    sharedLists={sharedLists}
+                    refreshLists={refreshLists}
+                  />
+                  <ShareListsWithFriends
+                    userId={userId}
+                    ownedLists={ownedLists}
+                    refreshLists={refreshLists}
+                  />
+                </>
+              }
             />
-          }
-        />
-        <Route
-          path="/manage"
-          element={
-            <TradingPage
-              userId={userId}
-              portfolios={portfolios}
-              refreshPortfolios={refreshPortfolios}
+            <Route path="/friends" element={<FriendsPanel userId={userId} />} />
+            <Route
+              path="/portfolio"
+              element={
+                <PortfolioPage
+                  userId={userId}
+                  portfolios={portfolios}
+                  refreshPortfolios={refreshPortfolios}
+                />
+              }
             />
-          }
-        />
-        <Route path="/stats" element={<StatsPage userId={userId} />} />
-        <Route
-          path="/data"
-          element={<StockAnalysis userId={userId} portfolios={portfolios} />}
-        />
-        <Route path="/add-stock" element={<AddStockPage userId={userId} />} />
-      </Routes>
+            <Route
+              path="/manage"
+              element={
+                <TradingPage
+                  userId={userId}
+                  portfolios={portfolios}
+                  refreshPortfolios={refreshPortfolios}
+                />
+              }
+            />
+            <Route path="/stats" element={<StatsPage userId={userId} />} />
+            <Route
+              path="/data"
+              element={<StockAnalysis userId={userId} portfolios={portfolios} />}
+            />
+            <Route path="/add-stock" element={<AddStockPage userId={userId} />} />
+          </Routes>
+        </div>
+      </div>
     </div>
   );
 }
