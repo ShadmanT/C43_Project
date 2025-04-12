@@ -6,7 +6,9 @@ const NavBar = () => (
     <Link to="/manage">Manage Funds</Link> |{" "}
     <Link to="/stats">Portfolio Stats</Link> |{" "}
     <Link to="/data">Stock Analysis</Link> |{" "}
-    <Link to="/add-stock">Add Stock</Link>
+    <Link to="/add-stock">Add Stock</Link> |{" "}
+    <Link to="/stocklists">Stock Lists</Link> |{" "}
+    <Link to="/friends">Friends</Link> |{" "}
   </nav>
 );
 

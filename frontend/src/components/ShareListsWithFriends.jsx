@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const ShareListsWithFriends = ({ userId, ownedLists }) => {
+const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
   const [selectedLists, setSelectedLists] = useState([]);
 
   useEffect(() => {
     const fetchFriends = async () => {
-      const res = await axios.get('http://localhost:3000/api/friends', {
-        headers: { 'x-user-id': userId }
-      });
-      setFriends(res.data);
+      try {
+        const res = await axios.get('http://localhost:3000/api/friends', {
+          headers: { 'x-user-id': userId }
+        });
+        setFriends(res.data);
+      } catch (err) {
+        console.error('❌ Failed to fetch friends:', err);
+      }
     };
 
     fetchFriends();
@@ -26,23 +30,45 @@ const ShareListsWithFriends = ({ userId, ownedLists }) => {
   };
 
   const shareLists = async () => {
-    try {
-      for (const listId of selectedLists) {
-        for (const friendId of selectedFriends) {
-          await axios.post(`http://localhost:3000/api/stocklists/${listId}/share-with-friend`, {
-            friendId
-          }, {
-            headers: { 'x-user-id': userId }
-          });
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const listId of selectedLists) {
+      for (const friendId of selectedFriends) {
+        try {
+          const res = await axios.post(
+            `http://localhost:3000/api/stocklists/${listId}/share-with-friend`,
+            { friendId },
+            { headers: { 'x-user-id': userId } }
+          );
+
+          if (res.status === 200) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`❌ Failed to share list ${listId} with user ${friendId}`, err);
+          failCount++;
         }
       }
-      alert('Lists shared!');
-    } catch (err) {
-      alert('Failed to share some lists');
     }
+
+    await refreshLists();
+
+    if (successCount > 0) {
+      alert(`Successfully shared ${successCount} item(s).`);
+    }
+
+    if (failCount > 0) {
+      alert(`Failed to share ${failCount} item(s). Check the console for details.`);
+    }
+
+    // Clear selections after sharing
+    setSelectedFriends([]);
+    setSelectedLists([]);
   };
 
-  // ✅ Only allow private lists owned by the user to be shared
   const filteredLists = ownedLists.filter(
     list => list.user_id === userId && list.visibility === 'private'
   );

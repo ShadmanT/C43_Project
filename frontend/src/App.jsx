@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate
+} from 'react-router-dom';
+
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import NavBar from './components/NavBar';
 
-import PortfolioView from './components/PortfolioView';
-import PortfolioStats from './components/PortfolioStats';
-import TradeForm from './components/TradeForm';
-import PredictionGraph from './components/PredictionGraph';
-import HistoryViewer from './components/HistoryViewer';
 import StockListPanel from './components/StockListPanel';
 import ShareListsWithFriends from './components/ShareListsWithFriends';
+import FriendsPanel from './components/FriendsPanel';
 
 import PortfolioPage from './pages/PortfolioPage';
 import TradingPage from './pages/ManageFundsPage';
@@ -20,11 +22,21 @@ import AddStockPage from './pages/AddStockPage';
 
 import axios from 'axios';
 
+function AppWrapper() {
+  return (
+    <Router>
+      <App />
+    </Router>
+  );
+}
+
 function App() {
   const [userId, setUserId] = useState(null);
   const [portfolios, setPortfolios] = useState([]);
   const [ownedLists, setOwnedLists] = useState([]);
   const [sharedLists, setSharedLists] = useState([]);
+
+  const navigate = useNavigate();
 
   const refreshPortfolios = async () => {
     try {
@@ -37,7 +49,7 @@ function App() {
     }
   };
 
-  const fetchStockLists = async () => {
+  const refreshLists = async () => {
     try {
       const [ownedRes, sharedRes] = await Promise.all([
         axios.get('http://localhost:3000/api/stocklists', {
@@ -51,67 +63,94 @@ function App() {
       setOwnedLists(ownedRes.data);
       setSharedLists(sharedRes.data);
     } catch (err) {
-      console.error('Failed to fetch stock lists', err);
+      console.error('Failed to refresh stock lists', err);
     }
   };
 
   useEffect(() => {
     if (userId) {
       refreshPortfolios();
-      fetchStockLists();
+      refreshLists();
+      navigate('/');
     }
   }, [userId]);
 
-  return (
-    <Router>
-      <div>
-        {!userId ? (
-          <>
-            <LoginForm setUserId={setUserId} />
-            <hr />
-            <RegisterForm onRegister={setUserId} />
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-gray-500 mb-2">Logged in as user {userId}</p>
-            <button onClick={() => setUserId(null)}>Log Out</button>
-            <NavBar />
-            <Routes>
-              <Route
-                path="/portfolio"
-                element={<PortfolioPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
-              />
-              <Route
-                path="/manage"
-                element={<TradingPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
-              />
-              <Route
-                path="/stats"
-                element={<StatsPage userId={userId} />}
-              />
-              <Route
-                path="/data"
-                element={<StockAnalysis userId={userId} portfolios={portfolios} />}
-              />
-              <Route
-                path="/add-stock"
-                element={<AddStockPage userId={userId} />}
-              />
-              <Route
-                path="/stocklists"
-                element={
-                  <>
-                    <StockListPanel userId={userId} ownedLists={ownedLists} sharedLists={sharedLists} />
-                    <ShareListsWithFriends userId={userId} ownedLists={ownedLists} />
-                  </>
-                }
-              />
-            </Routes>
-          </>
-        )}
+  if (!userId) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <LoginForm setUserId={setUserId} />
+        <hr />
+        <RegisterForm onRegister={setUserId} />
       </div>
-    </Router>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <p className="text-sm text-gray-500 mb-2">Logged in as user {userId}</p>
+      <button onClick={() => setUserId(null)}>Log Out</button>
+      <NavBar />
+
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <StockListPanel
+              userId={userId}
+              ownedLists={ownedLists}
+              sharedLists={sharedLists}
+              refreshLists={refreshLists}
+            />
+          }
+        />
+        <Route
+          path="/stocklists"
+          element={
+            <>
+              <StockListPanel
+                userId={userId}
+                ownedLists={ownedLists}
+                sharedLists={sharedLists}
+                refreshLists={refreshLists}
+              />
+              <ShareListsWithFriends
+                userId={userId}
+                ownedLists={ownedLists}
+                refreshLists={refreshLists}
+              />
+            </>
+          }
+        />
+        <Route path="/friends" element={<FriendsPanel userId={userId} />} />
+        <Route
+          path="/portfolio"
+          element={
+            <PortfolioPage
+              userId={userId}
+              portfolios={portfolios}
+              refreshPortfolios={refreshPortfolios}
+            />
+          }
+        />
+        <Route
+          path="/manage"
+          element={
+            <TradingPage
+              userId={userId}
+              portfolios={portfolios}
+              refreshPortfolios={refreshPortfolios}
+            />
+          }
+        />
+        <Route path="/stats" element={<StatsPage userId={userId} />} />
+        <Route
+          path="/data"
+          element={<StockAnalysis userId={userId} portfolios={portfolios} />}
+        />
+        <Route path="/add-stock" element={<AddStockPage userId={userId} />} />
+      </Routes>
+    </div>
   );
 }
 
-export default App;
+export default AppWrapper;
