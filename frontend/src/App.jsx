@@ -113,11 +113,6 @@ function App() {
                 sharedLists={sharedLists}
                 refreshLists={refreshLists}
               />
-              <ShareListsWithFriends
-                userId={userId}
-                ownedLists={ownedLists}
-                refreshLists={refreshLists}
-              />
             </>
           }
         />

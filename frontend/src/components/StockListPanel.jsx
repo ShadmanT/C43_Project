@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import ReviewPanel from './ReviewPanel';
 
 const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
   const [listName, setListName] = useState('');
@@ -125,19 +126,94 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         visibility: item.visibility,
         user_id: item.user_id,
         shared_by: item.shared_by,
+        owner_username: item.shared_by || null,
         items: []
       };
     }
 
     if (item.symbol && item.num_shares) {
-      grouped[item.list_id].items.push({
-        symbol: item.symbol,
-        num_shares: item.num_shares
-      });
+      const exists = grouped[item.list_id].items.some(i => i.symbol === item.symbol);
+      if (!exists) {
+        grouped[item.list_id].items.push({ symbol: item.symbol, num_shares: item.num_shares });
+      }
     }
   });
 
   const groupedArray = Object.values(grouped);
+  const yourLists = groupedArray.filter(list => list.user_id === parsedUserId);
+  const otherLists = groupedArray.filter(list => list.user_id !== parsedUserId);
+
+  const renderList = (list) => (
+    <div key={list.list_id} className="mb-8 p-4 border border-gray-600 rounded-xl shadow-lg bg-[#1e1e1e]">
+      <div className="flex justify-between items-center">
+        <div>
+          <strong>{list.list_name}</strong> ({list.visibility})
+          {list.user_id !== parsedUserId && (
+            <span className="ml-2 text-sm text-gray-400">
+              owned by {list.owner_username || 'unknown'}
+            </span>
+          )}
+        </div>
+        {list.user_id === parsedUserId && (
+          <button onClick={() => deleteStockList(list.list_id)} className="text-red-500 hover:underline">
+            Delete
+          </button>
+        )}
+      </div>
+
+      <ul className="ml-4 text-sm text-gray-300 mt-2">
+        {list.items.map((item, idx) => (
+          <li key={idx}>• {item.symbol}: {item.num_shares} shares</li>
+        ))}
+      </ul>
+
+      {list.user_id === parsedUserId && (
+        <div className="mt-4 text-sm flex flex-col gap-3">
+          <div>
+            <label className="mr-2">Change visibility:</label>
+            <select
+              value={list.visibility}
+              onChange={(e) => updateVisibility(list.list_id, e.target.value)}
+              className="border p-1 text-sm"
+            >
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+            </select>
+          </div>
+
+          {list.visibility !== 'public' && (
+            <div>
+              <label className="mr-2">Share with:</label>
+              <select
+                value={shareTargets[list.list_id] || ''}
+                onChange={(e) =>
+                  setShareTargets(prev => ({ ...prev, [list.list_id]: e.target.value }))
+                }
+                className="border p-1 mr-2"
+              >
+                <option value="">Select friend</option>
+                {friends.map(f => (
+                  <option key={f.user_id} value={f.user_id}>
+                    {f.username} (ID: {f.user_id})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => shareListWithFriend(list.list_id)}
+                className="bg-green-500 text-white px-2 py-1 rounded"
+              >
+                Share
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {list.visibility !== 'private' && (
+        <ReviewPanel userId={parsedUserId} listId={list.list_id} />
+      )}
+    </div>
+  );
 
   return (
     <div className="p-4 border rounded-lg shadow space-y-4">
@@ -170,75 +246,17 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
       </div>
 
       <h2 className="text-lg font-semibold mb-2">Your Stock Lists</h2>
-      {ownedLists.length === 0 ? (
+      {yourLists.length === 0 ? (
         <p className="text-sm text-gray-500">You have no stock lists created.</p>
       ) : (
-        groupedArray.map(list => (
-          <div key={list.list_id} className="mb-4 p-3 border rounded">
-            <div className="flex justify-between items-center">
-              <div>
-                <strong>{list.list_name}</strong> ({list.visibility})
-                {list.shared_by && <span className="ml-2 text-sm text-gray-500">shared by {list.shared_by}</span>}
-              </div>
-              {list.user_id === parsedUserId && (
-                <button
-                  onClick={() => deleteStockList(list.list_id)}
-                  className="text-red-500 hover:underline"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
+        yourLists.map(renderList)
+      )}
 
-            <ul className="ml-4 text-sm text-gray-700">
-              {list.items.map((item, idx) => (
-                <li key={idx}>• {item.symbol}: {item.num_shares} shares</li>
-              ))}
-            </ul>
-
-            {list.user_id === parsedUserId && (
-              <div className="mt-2 text-sm flex flex-col gap-2">
-                <div>
-                  <label className="mr-2">Change visibility:</label>
-                  <select
-                    value={list.visibility}
-                    onChange={(e) => updateVisibility(list.list_id, e.target.value)}
-                    className="border p-1 text-sm"
-                  >
-                    <option value="private">Private</option>
-                    <option value="public">Public</option>
-                  </select>
-                </div>
-
-                {list.visibility !== 'public' && (
-                  <div>
-                    <label className="mr-2">Share with:</label>
-                    <select
-                      value={shareTargets[list.list_id] || ''}
-                      onChange={(e) =>
-                        setShareTargets(prev => ({ ...prev, [list.list_id]: e.target.value }))
-                      }
-                      className="border p-1 mr-2"
-                    >
-                      <option value="">Select friend</option>
-                      {friends.map(f => (
-                        <option key={f.user_id} value={f.user_id}>
-                          {f.username} (ID: {f.user_id})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => shareListWithFriend(list.list_id)}
-                      className="bg-green-500 text-white px-2 py-1 rounded"
-                    >
-                      Share
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))
+      <h2 className="text-lg font-semibold mt-6 mb-2">Other Stock Lists</h2>
+      {otherLists.length === 0 ? (
+        <p className="text-sm text-gray-500">No shared or public stock lists to show.</p>
+      ) : (
+        otherLists.map(renderList)
       )}
     </div>
   );
