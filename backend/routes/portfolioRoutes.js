@@ -287,7 +287,7 @@ router.get('/history', async (req, res) => {
         [portfolioId]
       );
   
-      const symbols = symbolsResult.rows.map(r => r.symbol);
+      const symbols = symbolsResult.rows.map(r => r.symbol); // get each stock symbol from query above
       const stats = {}; // to hold stats per symbol
       const matrix = {}; // will hold correlation matrix bn symbols
   
@@ -304,9 +304,9 @@ router.get('/history', async (req, res) => {
       const marketMap = new Map(marketRes.rows.map(r => [r.date.toISOString().split('T')[0], parseFloat(r.market_close)]));
   
       // build correlation matrix and compute stats per symbol
-      for (let i = 0; i < symbols.length; i++) {
+      for (let i = 0; i < symbols.length; i++) { // loop through each stock symbol in the portfolio
         const symA = symbols[i];
-        stats[symA] = {};
+        stats[symA] = {}; //initialize to store stats for current symbol
   
         // get price history for the stock, to calculate COV, beta and returns
         const priceRes = await pool.query(`
@@ -315,13 +315,13 @@ router.get('/history', async (req, res) => {
           ORDER BY date
         `, [symA]);
   
-        const returns = [];
-        const marketReturns = [];
+        const returns = []; // for daily returns for the stock
+        const marketReturns = []; // to store daily returns for the market
   
         // compute stock returns and market returns
-        for (let j = 1; j < priceRes.rows.length; j++) {
-          const prev = priceRes.rows[j - 1];
-          const curr = priceRes.rows[j];
+        for (let j = 1; j < priceRes.rows.length; j++) { // loop through the price history and compute returns
+          const prev = priceRes.rows[j - 1]; // previous day price
+          const curr = priceRes.rows[j]; // current dat price
           const dateStr = curr.date.toISOString().split('T')[0];
           
           // computing daily log returns for stock and market
@@ -337,16 +337,16 @@ router.get('/history', async (req, res) => {
         }
   
         // compute average return and standard deviation
-        const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0;
-        const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length);
+        const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0; // avg return for hte stock
+        const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length); // std dev of stock returns
 
         // COV = std / avg (if avg != 0)
         const cov = avg !== 0 ? std / avg : null;
 
 
         // calculating Beta using the correlation with market
-        const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length;
-        const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length);
+        const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length; // avg returns of the market
+        const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length); // std of market returns
   
         // correlation between stock and market
         let corr = 0;

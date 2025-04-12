@@ -36,7 +36,7 @@ const PortfolioStats = ({ userId }) => {
 
   return (
     <div>
-      <h3>Portfolio Stats</h3>
+      <h3>Portfolio Statistics</h3>
       <label>
         Select Portfolio:
         <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
@@ -60,6 +60,7 @@ const PortfolioStats = ({ userId }) => {
                 <th>Avg</th>
                 <th>StdDev</th>
                 <th>COV</th>
+                <th>Beta</th> 
               </tr>
             </thead>
             <tbody>
@@ -69,6 +70,7 @@ const PortfolioStats = ({ userId }) => {
                   <td>{s.average}</td>
                   <td>{s.stddev}</td>
                   <td>{s.cov}</td>
+                  <td>{s.beta}</td> 
                 </tr>
               ))}
             </tbody>
