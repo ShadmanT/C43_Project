@@ -22,7 +22,7 @@ const ReviewPanel = ({ userId, listId }) => {
       const sorted = res.data.sort((a, b) => new Date(b.last_edit) - new Date(a.last_edit));
       setReviews(sorted);
 
-      const mine = sorted.find((r) => r.username && r.user_id === userId);
+      const mine = sorted.find((r) => r.user_id === userId);
       if (mine) {
         setMyReview(mine.content);
         setReviewId(mine.review_id);

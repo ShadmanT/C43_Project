@@ -29,7 +29,6 @@ exports.getReviewsForList = async (req, res) => {
   const listId = parseInt(req.params.listId);
 
   try {
-    // Get list info and visibility
     const listRes = await pool.query(
       `SELECT * FROM StockList WHERE list_id = $1`,
       [listId]
@@ -41,7 +40,6 @@ exports.getReviewsForList = async (req, res) => {
 
     const list = listRes.rows[0];
 
-    // Access control
     if (list.visibility === 'private' && list.user_id !== userId) {
       return res.status(403).json({ error: 'Not authorized to view reviews on private list' });
     }
@@ -57,9 +55,8 @@ exports.getReviewsForList = async (req, res) => {
       }
     }
 
-    // Get reviews
     const reviews = await pool.query(
-      `SELECT r.review_id, r.content, r.last_edit, u.username
+      `SELECT r.review_id, r.user_id, r.content, r.last_edit, u.username
        FROM Review r
        JOIN UserAccount u ON u.user_id = r.user_id
        WHERE r.list_id = $1`,
@@ -68,7 +65,7 @@ exports.getReviewsForList = async (req, res) => {
 
     res.json(reviews.rows);
   } catch (err) {
-    console.error(' Fetch reviews failed:', err);
+    console.error('Fetch reviews failed:', err);
     res.status(500).json({ error: 'Failed to fetch reviews' });
   }
 };
@@ -79,8 +76,7 @@ exports.deleteReview = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `DELETE FROM Review
-       WHERE review_id = $1 AND user_id = $2`,
+      `DELETE FROM Review WHERE review_id = $1 AND user_id = $2`,
       [reviewId, userId]
     );
 
