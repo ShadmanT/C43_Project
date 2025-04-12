@@ -35,7 +35,7 @@ const AddStockData = ({ userId, onStockAdded }) => {
         }
       });
       alert(res.data.message);
-      if (onStockAdded) onStockAdded(); // ✅ trigger parent refresh
+      if (onStockAdded) onStockAdded(); // trigger parent refresh
     } catch (err) {
       const msg = err?.response?.data?.error;
       alert(msg || 'Failed to add stock data.');

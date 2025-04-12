@@ -55,7 +55,7 @@ exports.getSharedStockLists = async (req, res) => {
 
     res.status(200).json(result.rows);
   } catch (err) {
-    console.error('❌ getSharedStockLists failed:', err);
+    console.error('getSharedStockLists failed:', err);
     res.status(500).json({ error: 'Could not retrieve shared lists' });
   }
 };

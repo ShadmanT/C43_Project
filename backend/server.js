@@ -1,6 +1,6 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 
-console.log("✅ stockListRoutes.js loaded");
+console.log("stockListRoutes.js loaded");
 console.log("DB_USER:", process.env.DB_USER);
 console.log("DB_PASS:", process.env.DB_PASS);
 

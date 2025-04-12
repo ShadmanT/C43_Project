@@ -201,6 +201,8 @@ router.get('/view', async (req, res) => {
       const holdings = holdingsRes.rows;
 
       // calculating the total market value
+      // for each stock in the portfolio we do (number of shares x latest price per share)
+      // then we use that to get the total values of all stocks and add it to the cash balance in portfolio
       let marketValue = 0;
       holdings.forEach(h => {
         marketValue += h.num_shares * parseFloat(h.latest_price);
@@ -229,6 +231,7 @@ router.get('/view', async (req, res) => {
 router.get('/history', async (req, res) => {
     const { symbol, interval } = req.query;
   
+    //covert intervals to int day values
     const intervalMap = {
       '1week': 7,
       '1month': 30,
@@ -236,12 +239,14 @@ router.get('/history', async (req, res) => {
       '1year': 365,
       '5years': 1825
     };
-  
     const days = intervalMap[interval];
+
+    // check inputs
     if (!symbol || !days) {
       return res.status(400).json({ error: 'Invalid symbol or interval' });
     }
   
+    // getting the historical data of given symbol from the past X days
     try {
         const result = await pool.query(
             `
@@ -256,25 +261,26 @@ router.get('/history', async (req, res) => {
             [symbol, days]
         );
           
-  
       res.json({
         symbol,
         interval,
         data: result.rows
       });
     } catch (err) {
-      console.error('❌ Historical price fetch failed:', err);
+      console.error('Historical price fetch failed:', err);
       res.status(500).json({ error: 'Could not retrieve historical prices' });
     }
   });
 
   router.get('/stats', async (req, res) => {
     const { portfolioId } = req.query;
-  
+    
+    // check if we have a valid portfolio ID
     if (!portfolioId || isNaN(portfolioId)) {
       return res.status(400).json({ error: 'Invalid portfolioId' });
     }
-  
+    
+    // get all symbols in portfolio
     try {
       const symbolsResult = await pool.query(
         `SELECT symbol FROM PortfolioHolding WHERE portfolio_id = $1`,
@@ -282,24 +288,27 @@ router.get('/history', async (req, res) => {
       );
   
       const symbols = symbolsResult.rows.map(r => r.symbol);
-      const stats = {};
-      const matrix = {};
+      const stats = {}; // to hold stats per symbol
+      const matrix = {}; // will hold correlation matrix bn symbols
   
-      // Calculate market average close per day
+      // calculate market average close per day
+      // we do this by taking the average of all stock close prices for each data
       const marketRes = await pool.query(`
         SELECT date, AVG(close) AS market_close
         FROM StockPrice
         WHERE close IS NOT NULL
         GROUP BY date
       `);
+
+      // lookup map of market average for a given date
       const marketMap = new Map(marketRes.rows.map(r => [r.date.toISOString().split('T')[0], parseFloat(r.market_close)]));
   
-      // Build correlation matrix and compute stats per symbol
+      // build correlation matrix and compute stats per symbol
       for (let i = 0; i < symbols.length; i++) {
         const symA = symbols[i];
         stats[symA] = {};
   
-        // Get price history for the stock
+        // get price history for the stock, to calculate COV, beta and returns
         const priceRes = await pool.query(`
           SELECT date, close FROM StockPrice
           WHERE symbol = $1 AND close IS NOT NULL
@@ -309,11 +318,13 @@ router.get('/history', async (req, res) => {
         const returns = [];
         const marketReturns = [];
   
+        // compute stock returns and market returns
         for (let j = 1; j < priceRes.rows.length; j++) {
           const prev = priceRes.rows[j - 1];
           const curr = priceRes.rows[j];
           const dateStr = curr.date.toISOString().split('T')[0];
-  
+          
+          // computing daily log returns for stock and market
           const stockReturn = Math.log(curr.close / prev.close);
           const marketPrev = marketMap.get(prev.date.toISOString().split('T')[0]);
           const marketCurr = marketMap.get(dateStr);
@@ -325,21 +336,27 @@ router.get('/history', async (req, res) => {
           }
         }
   
+        // compute average return and standard deviation
         const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0;
         const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length);
+
+        // COV = std / avg (if avg != 0)
         const cov = avg !== 0 ? std / avg : null;
-  
+
+
+        // calculating Beta using the correlation with market
         const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length;
         const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length);
   
-        // Correlation
+        // correlation between stock and market
         let corr = 0;
         if (returns.length === marketReturns.length && returns.length > 1) {
           const numerator = returns.map((r, i) => (r - avg) * (marketReturns[i] - meanMarket)).reduce((a, b) => a + b, 0);
           const denominator = returns.length * std * stdMarket;
           corr = denominator !== 0 ? numerator / denominator : 0;
         }
-  
+        
+        // computing beta 
         const beta = corr * (std / stdMarket);
   
         stats[symA] = {
@@ -349,7 +366,7 @@ router.get('/history', async (req, res) => {
           beta: isFinite(beta) ? beta.toFixed(4) : null
         };
   
-        // Correlation matrix entry
+        // computing row of correlation matrix for symA
         matrix[symA] = {};
         for (let j = 0; j < symbols.length; j++) {
           const symB = symbols[j];
@@ -378,17 +395,17 @@ router.get('/history', async (req, res) => {
       });
   
     } catch (err) {
-      console.error('❌ Portfolio stats failed:', err);
+      console.error('Portfolio stats failed:', err);
       res.status(500).json({ error: 'Could not calculate stats' });
     }
   });  
 
 
-  /**
- * POST /api/portfolio/stockprice/add
- * Adds new stock price data
- * Body: { symbol, date, open, high, low, close, volume }
- */
+
+// adds new stock price data
+// /api/portfolio/stockprice/add
+// { symbol, date, open, high, low, close, volume }
+ 
 router.post('/stockprice/add', async (req, res) => {
     const { symbol, date, open, high, low, close, volume } = req.body;
   
@@ -404,19 +421,20 @@ router.post('/stockprice/add', async (req, res) => {
       );
       res.status(201).json({ message: 'Stock data added' });
     } catch (err) {
-      console.error('❌ Insert stock data failed:', err);
+      console.error('Insert stock data failed:', err);
       res.status(500).json({ error: 'Insert failed' });
     }
   });
 
-  /**
- * POST /portfolio/sell-stock
- * Sells stock from a portfolio and adds proceeds to cash
- * Body: { portfolioId, symbol, numShares }
- */
+  
+// sells stock from a portfolio and adds proceeds to cash
+// body: { portfolioId, symbol, numShares }
+// /portfolio/sell-stock
+ 
 router.post('/sell-stock', async (req, res) => {
     const { portfolioId, symbol, numShares } = req.body;
 
+    // check inputs
     if (numShares <= 0) {
         return res.status(400).json({ error: 'Number of shares must be greater than 0' });
     }
@@ -426,24 +444,28 @@ router.post('/sell-stock', async (req, res) => {
       
   
     try {
-      // Get holding
+      // get number of shares owned
       const holdingResult = await pool.query(
         `SELECT num_shares FROM PortfolioHolding WHERE portfolio_id = $1 AND symbol = $2`,
         [portfolioId, symbol]
       );
+
+      // if the user doesn't own the share or are trying to sell more than they have return an error
       if (holdingResult.rows.length === 0 || holdingResult.rows[0].num_shares < numShares) {
         return res.status(400).json({ error: 'Insufficient shares to sell' });
       }
   
-      // Get latest stock price
+      // get latest stock price
       const priceResult = await pool.query(
         `SELECT close FROM StockPrice WHERE symbol = $1 ORDER BY date DESC LIMIT 1`,
         [symbol]
       );
+
+      // calculate total money earned from selling shares
       const stockPrice = parseFloat(priceResult.rows[0]?.close ?? 0);
       const totalProceeds = stockPrice * numShares;
   
-      // Subtract shares
+      // subtract shares that were sold from their holdings
       await pool.query(
         `UPDATE PortfolioHolding
          SET num_shares = num_shares - $1
@@ -451,13 +473,13 @@ router.post('/sell-stock', async (req, res) => {
         [numShares, portfolioId, symbol]
       );
   
-      // Remove row if shares drop to 0
+      // remove row if shares drop to 0
       await pool.query(
         `DELETE FROM PortfolioHolding WHERE portfolio_id = $1 AND symbol = $2 AND num_shares <= 0`,
         [portfolioId, symbol]
       );
   
-      // Add proceeds to cash balance
+      // update their cash balance
       await pool.query(
         `UPDATE Portfolio SET cash_balance = cash_balance + $1 WHERE portfolio_id = $2`,
         [totalProceeds, portfolioId]
@@ -465,23 +487,24 @@ router.post('/sell-stock', async (req, res) => {
   
       res.status(200).json({ message: 'Stock sold successfully', proceeds: totalProceeds.toFixed(2) });
     } catch (err) {
-      console.error('❌ Sell stock failed:', err);
+      console.error('Sell stock failed:', err);
       res.status(500).json({ error: 'Sell stock failed' });
     }
   });  
 
-/**
- * GET /api/portfolio/predict?symbol=AAPL&days=30
- * Returns linear regression-based close price prediction
- */
+// returns linear regression-based close price prediction
+// /api/portfolio/predict?symbol=AAPL&days=30
+
 router.get('/predict', async (req, res) => {
   const { symbol, days } = req.query;
   const numDays = parseInt(days) || 30;
 
+  // check if symbol is chosen
   if (!symbol) {
     return res.status(400).json({ error: 'Symbol required' });
   }
 
+  // get all the historical data for the stock
   try {
     const result = await pool.query(
       `SELECT date, close
@@ -496,24 +519,25 @@ router.get('/predict', async (req, res) => {
       return res.status(400).json({ error: 'Not enough data for prediction' });
     }
 
-    // Convert date to day offset
+    // convert each date into a number (x) representing days since the first entry
+    // we let the close price be y
     const baseDate = new Date(rows[0].date);
     const data = rows.map((r, i) => ({
-      x: (new Date(r.date) - baseDate) / (1000 * 60 * 60 * 24), // days since start
+      x: (new Date(r.date) - baseDate) / (1000 * 60 * 60 * 24), 
       y: parseFloat(r.close)
     }));
 
-    // Compute linear regression: y = a + b * x
-    const n = data.length;
-    const sumX = data.reduce((acc, pt) => acc + pt.x, 0);
-    const sumY = data.reduce((acc, pt) => acc + pt.y, 0);
-    const sumXY = data.reduce((acc, pt) => acc + pt.x * pt.y, 0);
-    const sumX2 = data.reduce((acc, pt) => acc + pt.x * pt.x, 0);
+    // computing linear regression: y = a + b * x
+    const n = data.length; // getting the number of data points
+    const sumX = data.reduce((acc, pt) => acc + pt.x, 0); // getting the sum of all x
+    const sumY = data.reduce((acc, pt) => acc + pt.y, 0); // getting the sum of all y
+    const sumXY = data.reduce((acc, pt) => acc + pt.x * pt.y, 0); // getting the sum of corresponding x and y
+    const sumX2 = data.reduce((acc, pt) => acc + pt.x * pt.x, 0); // getting the sum of the x squares
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX); 
+    const intercept = (sumY - slope * sumX) / n; 
 
-    // Predict future close prices
+    // predicting future close prices
     const lastDayOffset = data[data.length - 1].x;
     const predicted = [];
 
@@ -550,7 +574,7 @@ router.post('/stock/user-add', async (req, res) => {
 
     const upperSymbol = symbol.toUpperCase();
 
-    // 1. Check if company already exists under a different symbol
+    // checking if company already exists under a different symbol
     const nameCheck = await client.query(
       `SELECT symbol FROM Stock WHERE LOWER(company_name) = LOWER($1)`,
       [company_name]
@@ -563,7 +587,7 @@ router.post('/stock/user-add', async (req, res) => {
       });
     }
 
-    // 2. Check if symbol already exists with a different company
+    // checking if symbol already exists with a different company
     const symbolCheck = await client.query(
       `SELECT company_name FROM Stock WHERE symbol = $1`,
       [upperSymbol]
@@ -579,7 +603,7 @@ router.post('/stock/user-add', async (req, res) => {
       }
     }
 
-    // 3. Insert stock if it doesn't already exist
+    // inserting stock if it doesn't already exist
     if (symbolCheck.rows.length === 0) {
       await client.query(
         `INSERT INTO Stock (symbol, company_name)
@@ -588,7 +612,7 @@ router.post('/stock/user-add', async (req, res) => {
       );
     }
 
-    // 4. Insert stock price
+    // inserting stock price
     await client.query(
       `INSERT INTO StockPrice (symbol, date, open, high, low, close, volume)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
