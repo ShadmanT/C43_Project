@@ -6,18 +6,25 @@ const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
  // replace with req.user.id when auth is ready
 
  exports.getAllStockLists = async (req, res) => {
-  const userId = parseInt(req.headers['x-user-id']) || 1;
+  const userId = getUserId(req);
 
   try {
     const { rows } = await pool.query(`
-      SELECT sl.*, sli.symbol, sli.num_shares
-      FROM StockList sl
-      LEFT JOIN StockListItem sli ON sl.list_id = sli.list_id
-      WHERE sl.user_id = $1
-         OR sl.visibility = 'public'
-         OR sl.list_id IN (
-           SELECT list_id FROM StockListShare WHERE shared_with = $1
-         )
+      (
+        SELECT sl.*, sli.symbol, sli.num_shares, NULL AS shared_by
+        FROM StockList sl
+        LEFT JOIN StockListItem sli ON sl.list_id = sli.list_id
+        WHERE sl.user_id = $1
+      )
+      UNION ALL
+      (
+        SELECT sl.*, sli.symbol, sli.num_shares, ua.username AS shared_by
+        FROM StockListShare s
+        JOIN StockList sl ON s.list_id = sl.list_id
+        LEFT JOIN StockListItem sli ON sl.list_id = sli.list_id
+        JOIN UserAccount ua ON sl.user_id = ua.user_id
+        WHERE s.shared_with = $1
+      )
     `, [userId]);
 
     res.json(rows);
@@ -26,25 +33,27 @@ const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
   }
 };
 
-exports.getSharedStockLists = async (req, res) => {
-  const userId = parseInt(req.headers['x-user-id']) || 1;
 
+
+exports.getSharedStockLists = async (req, res) => {
+  const userId = parseInt(req.headers['x-user-id']);
   try {
-    const { rows } = await pool.query(`
-      SELECT sl.*, sli.symbol, sli.num_shares
-      FROM StockList sl
+    const result = await pool.query(`
+      SELECT sl.*, sli.symbol, sli.num_shares, ua.username AS shared_by
+      FROM StockListShare s
+      JOIN StockList sl ON s.list_id = sl.list_id
       LEFT JOIN StockListItem sli ON sl.list_id = sli.list_id
-      WHERE sl.list_id IN (
-        SELECT list_id FROM StockListShare WHERE shared_with = $1
-      )
+      JOIN UserAccount ua ON sl.user_id = ua.user_id
+      WHERE s.shared_with = $1
     `, [userId]);
 
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
-    console.error('❌ Failed to get shared stocklists:', err);
-    res.status(500).json({ error: 'Failed to fetch shared stocklists' });
+    console.error('Failed to fetch shared lists:', err);
+    res.status(500).json({ error: 'Could not retrieve shared lists' });
   }
 };
+
 
 exports.getStockListById = async (req, res) => {
   const listId = parseInt(req.params.listId);
@@ -105,15 +114,23 @@ exports.createStockList = async (req, res) => {
 };
 
 exports.deleteStockList = async (req, res) => {
-  const userId = getUserId(req);
-  const listId = req.params.listId;
+  const userId = parseInt(req.headers['x-user-id']);
+  const listId = parseInt(req.params.listId);
+
   try {
-    await pool.query(`DELETE FROM StockList WHERE list_id = $1 AND user_id = $2`, [listId, userId]);
+    // Check if list belongs to user
+    const result = await pool.query(`SELECT * FROM StockList WHERE list_id = $1 AND user_id = $2`, [listId, userId]);
+    if (result.rows.length === 0) return res.status(403).json({ error: 'Not authorized' });
+
+    // Delete
+    await pool.query(`DELETE FROM StockList WHERE list_id = $1`, [listId]);
     res.status(204).send();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Delete failed:', err);
+    res.status(500).json({ error: 'Delete failed' });
   }
 };
+
 
 exports.shareStockList = async (req, res) => {
   const { listId } = req.params;
