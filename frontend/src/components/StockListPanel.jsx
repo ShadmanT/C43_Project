@@ -48,7 +48,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while creating list.');
       }
     } catch (err) {
-      console.error('❌ Create list failed:', err.response?.data || err.message);
+      console.error('Create list failed:', err.response?.data || err.message);
       alert(`Failed to create list: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };

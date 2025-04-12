@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer
+} from 'recharts';
 
 const HistoryViewer = () => {
   const [symbol, setSymbol] = useState('AAPL');
@@ -16,7 +25,6 @@ const HistoryViewer = () => {
       console.error('Failed to fetch symbols');
     }
   };
-  
 
   const fetchHistory = async () => {
     try {
@@ -35,7 +43,7 @@ const HistoryViewer = () => {
 
   return (
     <div>
-      <h3>📈 Historical Price Viewer</h3>
+      <h3>Historical Price Viewer</h3>
       <label>
         Symbol:
         <select value={symbol} onChange={e => setSymbol(e.target.value)}>
@@ -53,26 +61,43 @@ const HistoryViewer = () => {
         </select>
       </label>
       <button onClick={fetchHistory}>View History</button>
-      <div>
-        {data.length > 0 && (
-          <table border="1" cellPadding="5" style={{ marginTop: '1rem' }}>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Close Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, i) => (
-                <tr key={i}>
-                  <td>{row.date}</td>
-                  <td>${parseFloat(row.close).toFixed(2)}</td>
+
+      {data.length > 0 && (
+        <>
+          <div style={{ marginTop: '1rem' }}>
+            <h4>Price Chart</h4>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis domain={['auto', 'auto']} />
+                <Tooltip />
+                <Line type="monotone" dataKey="close" stroke="#82ca9d" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div style={{ marginTop: '1rem' }}>
+            <h4>Close Price Table</h4>
+            <table border="1" cellPadding="5">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Close Price</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {data.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.date}</td>
+                    <td>${parseFloat(row.close).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };

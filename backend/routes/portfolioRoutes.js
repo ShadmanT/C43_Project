@@ -224,10 +224,8 @@ router.get('/view', async (req, res) => {
   }
 });
 
-/**
- * GET /api/portfolio/history?symbol=AAPL&interval=1month
- * Returns historical close prices of a stock over a given interval
- */
+
+// gets the historical close prices of a stock over a given interval
 router.get('/history', async (req, res) => {
     const { symbol, interval } = req.query;
   

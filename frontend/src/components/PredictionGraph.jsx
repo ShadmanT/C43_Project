@@ -36,7 +36,7 @@ const PredictionGraph = ({ userId, portfolios, refreshTrigger }) => {
     };
 
     fetchPrediction();
-  }, [selectedSymbol, refreshTrigger]); // ✅ refresh when triggered
+  }, [selectedSymbol, refreshTrigger]); // refresh when triggered
 
   return (
     <div>
