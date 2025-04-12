@@ -7,6 +7,11 @@ const LoginForm = ({ setUserId }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!emailOrUsername.trim() || !password.trim()) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
     try {
       const res = await axios.post('http://localhost:3000/auth/login', {
         emailOrUsername,
@@ -15,7 +20,8 @@ const LoginForm = ({ setUserId }) => {
       setUserId(res.data.userId);
       alert('Login successful!');
     } catch (err) {
-      alert('Login failed.');
+      // Always show generic message for login errors
+      alert("Login failed: Username or password is incorrect.");
     }
   };
 

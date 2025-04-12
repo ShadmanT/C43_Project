@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
-import PortfolioView from './components/PortfolioView';
-import PortfolioStats from './components/PortfolioStats';
-import TradeForm from './components/TradeForm';
-import PredictionGraph from './components/PredictionGraph';
-import HistoryViewer from './components/HistoryViewer';
+import NavBar from './components/NavBar';
+import PortfolioPage from './pages/PortfolioPage';
+import TradingPage from './pages/ManageFundsPage';
+import StatsPage from './pages/StatsPage';
+import StockAnalysis from './pages/StockAnalysis';
+import AddStockPage from './pages/AddStockPage';
 import axios from 'axios';
 
 function App() {
@@ -31,33 +33,45 @@ function App() {
   }, [userId]);
 
   return (
-    <div>
-      {!userId ? (
-        <>
-        <LoginForm setUserId={setUserId} />
-        <hr />
-        <RegisterForm onRegister={(id) => setUserId(id)} />
-        </>
-      ) : (
-        <>
-          <p>Logged in as user {userId}</p>
-          <TradeForm
-            userId={userId}
-            portfolios={portfolios}
-            refreshPortfolios={refreshPortfolios}
-          />
-          <hr />
-          <PortfolioView portfolios={portfolios} />
-          <hr />
-          <PortfolioStats userId={userId} />
-          <hr />
-          <HistoryViewer/>
-          <hr />
-          <PredictionGraph userId={userId} portfolios={portfolios} />
-
-        </>
-      )}
-    </div>
+    <Router>
+      <div>
+        {!userId ? (
+          <>
+            <LoginForm setUserId={setUserId} />
+            <hr />
+            <RegisterForm onRegister={(id) => setUserId(id)} />
+          </>
+        ) : (
+          <>
+            <p>Logged in as user {userId}</p>
+            <button onClick={() => setUserId(null)}>Log Out</button>
+            <NavBar />
+            <Routes>
+              <Route
+                path="/portfolio"
+                element={<PortfolioPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
+              />
+              <Route
+                path="/manage"
+                element={<TradingPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
+              />
+              <Route
+                path="/stats"
+                element={<StatsPage userId={userId} />}
+              />
+              <Route
+                path="/data"
+                element={<StockAnalysis userId={userId} portfolios={portfolios} />}
+              />
+              <Route 
+                path="/add-stock" 
+                element={<AddStockPage userId={userId} />} 
+              />
+            </Routes>
+          </>
+        )}
+      </div>
+    </Router>
   );
 }
 

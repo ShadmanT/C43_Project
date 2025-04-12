@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
-const PredictionGraph = ({ userId, portfolios }) => {
+const PredictionGraph = ({ userId, portfolios, refreshTrigger }) => {
   const [symbols, setSymbols] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    // Extract unique symbols from all portfolios
     const userSymbols = [];
     portfolios.forEach(p => {
       p.holdings.forEach(h => {
@@ -18,7 +17,7 @@ const PredictionGraph = ({ userId, portfolios }) => {
       });
     });
     setSymbols(userSymbols);
-    if (userSymbols.length > 0) {
+    if (userSymbols.length > 0 && !selectedSymbol) {
       setSelectedSymbol(userSymbols[0]);
     }
   }, [portfolios]);
@@ -37,7 +36,7 @@ const PredictionGraph = ({ userId, portfolios }) => {
     };
 
     fetchPrediction();
-  }, [selectedSymbol]);
+  }, [selectedSymbol, refreshTrigger]); // ✅ refresh when triggered
 
   return (
     <div>

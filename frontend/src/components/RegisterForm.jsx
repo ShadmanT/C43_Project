@@ -2,57 +2,73 @@ import { useState } from 'react';
 import axios from 'axios';
 
 const RegisterForm = ({ onRegister }) => {
-  const [form, setForm] = useState({ username: '', email: '', password: '' });
-  const [message, setMessage] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    setMessage('');
+
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      alert("All fields are required.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
     try {
-      const res = await axios.post('http://localhost:3000/auth/signup', form);
-      setMessage(`✅ Registered! User ID: ${res.data.userId}`);
-      onRegister?.(res.data.userId);
+      const res = await axios.post('http://localhost:3000/auth/signup', {
+        username,
+        email,
+        password
+      });
+      onRegister(res.data.userId);
+      alert('Registration successful!');
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Registration failed');
+      const msg = err?.response?.data?.error;
+      if (msg === 'Username already exists') {
+        alert("This username is already taken.");
+      } else if (msg === 'Email already registered') {
+        alert("An account with this email already exists.");
+      } else {
+        alert(`Signup failed: ${msg || 'Server error.'}`);
+      }
     }
   };
 
   return (
-    <div>
+    <form onSubmit={handleSignup}>
       <h2>Register</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={form.username}
-          onChange={handleChange}
-          required
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
-        <button type="submit">Register</button>
-        {message && <p>{message}</p>}
-      </form>
-    </div>
+      <input
+        type="text"
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        required
+      /><br />
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      /><br />
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      /><br />
+      <button type="submit">Sign Up</button>
+    </form>
   );
 };
 
