@@ -425,4 +425,72 @@ router.post('/sell-stock', async (req, res) => {
     }
   });  
 
+/**
+ * GET /api/portfolio/predict?symbol=AAPL&days=30
+ * Returns linear regression-based close price prediction
+ */
+router.get('/predict', async (req, res) => {
+  const { symbol, days } = req.query;
+  const numDays = parseInt(days) || 30;
+
+  if (!symbol) {
+    return res.status(400).json({ error: 'Symbol required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT date, close
+       FROM StockPrice
+       WHERE symbol = $1
+       ORDER BY date ASC`,
+      [symbol]
+    );
+
+    const rows = result.rows;
+    if (rows.length < 2) {
+      return res.status(400).json({ error: 'Not enough data for prediction' });
+    }
+
+    // Convert date to day offset
+    const baseDate = new Date(rows[0].date);
+    const data = rows.map((r, i) => ({
+      x: (new Date(r.date) - baseDate) / (1000 * 60 * 60 * 24), // days since start
+      y: parseFloat(r.close)
+    }));
+
+    // Compute linear regression: y = a + b * x
+    const n = data.length;
+    const sumX = data.reduce((acc, pt) => acc + pt.x, 0);
+    const sumY = data.reduce((acc, pt) => acc + pt.y, 0);
+    const sumXY = data.reduce((acc, pt) => acc + pt.x * pt.y, 0);
+    const sumX2 = data.reduce((acc, pt) => acc + pt.x * pt.x, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Predict future close prices
+    const lastDayOffset = data[data.length - 1].x;
+    const predicted = [];
+
+    for (let i = 1; i <= numDays; i++) {
+      const futureOffset = lastDayOffset + i;
+      const predictedClose = intercept + slope * futureOffset;
+
+      const futureDate = new Date(baseDate);
+      futureDate.setDate(baseDate.getDate() + futureOffset);
+
+      predicted.push({
+        date: futureDate.toISOString().split('T')[0],
+        close: parseFloat(predictedClose.toFixed(2))
+      });
+    }
+
+    res.json({ symbol, predicted });
+  } catch (err) {
+    console.error('Prediction failed:', err);
+    res.status(500).json({ error: 'Prediction failed' });
+  }
+});
+
+
 module.exports = router;
