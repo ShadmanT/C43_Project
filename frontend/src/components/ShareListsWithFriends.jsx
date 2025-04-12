@@ -14,7 +14,7 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
         });
         setFriends(res.data);
       } catch (err) {
-        console.error('❌ Failed to fetch friends:', err);
+        console.error('Failed to fetch friends:', err);
       }
     };
 
@@ -48,7 +48,7 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
             failCount++;
           }
         } catch (err) {
-          console.error(`❌ Failed to share list ${listId} with user ${friendId}`, err);
+          console.error(`Failed to share list ${listId} with user ${friendId}`, err);
           failCount++;
         }
       }
@@ -64,7 +64,6 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
       alert(`Failed to share ${failCount} item(s). Check the console for details.`);
     }
 
-    // Clear selections after sharing
     setSelectedFriends([]);
     setSelectedLists([]);
   };
@@ -74,7 +73,7 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
   );
 
   return (
-    <div className="p-4 border rounded-lg shadow mb-4">
+    <div className="p-4 border rounded shadow mb-4 max-w-xl mx-auto">
       <h2 className="text-xl font-semibold mb-2">Share Lists With Friends</h2>
 
       <div className="mb-4">
@@ -86,7 +85,7 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
                 type="checkbox"
                 checked={selectedFriends.includes(friend.user_id)}
                 onChange={() => toggleSelection(friend.user_id, setSelectedFriends, selectedFriends)}
-              />
+              />{' '}
               {friend.username}
             </label>
           </div>
@@ -105,7 +104,7 @@ const ShareListsWithFriends = ({ userId, ownedLists, refreshLists }) => {
                   type="checkbox"
                   checked={selectedLists.includes(list.list_id)}
                   onChange={() => toggleSelection(list.list_id, setSelectedLists, selectedLists)}
-                />
+                />{' '}
                 {list.list_name} ({list.visibility})
               </label>
             </div>

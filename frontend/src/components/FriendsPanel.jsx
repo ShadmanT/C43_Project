@@ -9,6 +9,11 @@ const FriendsPanel = ({ userId }) => {
   const [unfriendTarget, setUnfriendTarget] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
+  useEffect(() => {
+    fetchFriends();
+    fetchRequests();
+  }, [userId]);
+
   const fetchFriends = async () => {
     try {
       const res = await axios.get('http://localhost:3000/api/friends', {
@@ -16,7 +21,7 @@ const FriendsPanel = ({ userId }) => {
       });
       setFriends(res.data);
     } catch (err) {
-      console.error('❌ Failed to fetch friends:', err);
+      console.error('Failed to fetch friends:', err);
     }
   };
 
@@ -28,7 +33,7 @@ const FriendsPanel = ({ userId }) => {
       setIncomingRequests(res.data.incoming || []);
       setOutgoingRequests(res.data.outgoing || []);
     } catch (err) {
-      console.error('❌ Failed to fetch friend requests:', err);
+      console.error('Failed to fetch friend requests:', err);
     }
   };
 
@@ -42,9 +47,9 @@ const FriendsPanel = ({ userId }) => {
       alert('Request sent!');
       setRequestInput('');
       await fetchRequests();
-      await fetchFriends(); // refresh friends too
+      await fetchFriends();
     } catch (err) {
-      console.error('❌ Failed to send request:', err);
+      console.error('Failed to send request:', err);
       alert('Failed to send request');
     }
   };
@@ -59,7 +64,7 @@ const FriendsPanel = ({ userId }) => {
       await fetchFriends();
       await fetchRequests();
     } catch (err) {
-      console.error('❌ Failed to respond to friend request:', err);
+      console.error('Failed to respond to friend request:', err);
       alert('Failed to respond');
     }
   };
@@ -74,21 +79,15 @@ const FriendsPanel = ({ userId }) => {
       setUnfriendTarget(null);
       await fetchFriends();
     } catch (err) {
-      console.error('❌ Failed to unfriend:', err);
+      console.error('Failed to unfriend:', err);
       alert('Failed to unfriend');
     }
   };
-
-  useEffect(() => {
-    fetchFriends();
-    fetchRequests();
-  }, [userId]);
 
   return (
     <div className="p-4 border rounded-lg shadow space-y-4 max-w-xl mx-auto">
       <h2 className="text-xl font-semibold">Friends</h2>
 
-      {/* Current Friends */}
       <div>
         <h3 className="font-semibold mb-1">Your Friends:</h3>
         {friends.length === 0 ? (
@@ -111,7 +110,6 @@ const FriendsPanel = ({ userId }) => {
         )}
       </div>
 
-      {/* Send Request */}
       <div>
         <h3 className="font-semibold mb-1">Send Friend Request:</h3>
         <input
@@ -130,7 +128,6 @@ const FriendsPanel = ({ userId }) => {
         </button>
       </div>
 
-      {/* Incoming Requests */}
       <div>
         <h3 className="font-semibold mb-1">Incoming Requests:</h3>
         {incomingRequests.length === 0 ? (
@@ -158,7 +155,6 @@ const FriendsPanel = ({ userId }) => {
         )}
       </div>
 
-      {/* Outgoing Requests */}
       <div>
         <h3 className="font-semibold mb-1">Outgoing Requests:</h3>
         {outgoingRequests.length === 0 ? (
@@ -172,7 +168,6 @@ const FriendsPanel = ({ userId }) => {
         )}
       </div>
 
-      {/* Modal */}
       {showModal && unfriendTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
           <div className="bg-white text-black p-6 rounded shadow-lg w-80">

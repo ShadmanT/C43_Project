@@ -19,7 +19,6 @@ const ReviewPanel = ({ userId, listId }) => {
         headers: { 'x-user-id': userId },
       });
 
-      // Sort newest first
       const sorted = res.data.sort((a, b) => new Date(b.last_edit) - new Date(a.last_edit));
       setReviews(sorted);
 
@@ -34,7 +33,6 @@ const ReviewPanel = ({ userId, listId }) => {
         setEditing(false);
       }
     } catch (err) {
-      console.error('❌ Failed to fetch reviews:', err);
       setError(err.response?.data?.error || 'Not authorized or list does not exist');
     }
   };
@@ -45,19 +43,13 @@ const ReviewPanel = ({ userId, listId }) => {
     try {
       await axios.post(
         'http://localhost:3000/api/reviews',
-        {
-          listId,
-          content: myReview,
-        },
-        {
-          headers: { 'x-user-id': userId },
-        }
+        { listId, content: myReview },
+        { headers: { 'x-user-id': userId } }
       );
       await fetchReviews();
       setEditing(true);
-      setCollapsed(false); // auto-expand on submit
-    } catch (err) {
-      console.error('❌ Failed to submit review:', err);
+      setCollapsed(false);
+    } catch {
       alert('Could not submit review');
     }
   };
@@ -71,19 +63,18 @@ const ReviewPanel = ({ userId, listId }) => {
       setReviewId(null);
       setEditing(false);
       await fetchReviews();
-    } catch (err) {
-      console.error('❌ Failed to delete review:', err);
+    } catch {
       alert('Could not delete review');
     }
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-gray-700">
+    <div className="mt-6 pt-4 border-t border-gray-300">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-lg font-semibold">Reviews</h3>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="text-sm text-blue-400 hover:underline"
+          className="text-sm text-blue-600 hover:underline"
         >
           {collapsed ? 'Show' : 'Hide'}
         </button>
@@ -92,17 +83,17 @@ const ReviewPanel = ({ userId, listId }) => {
       {!collapsed && (
         <>
           {error ? (
-            <p className="text-red-500 text-sm">{error}</p>
+            <p className="text-red-600 text-sm">{error}</p>
           ) : (
             <>
               {reviews.length === 0 ? (
-                <p className="text-sm text-gray-500 mb-4">No reviews yet.</p>
+                <p className="text-sm text-gray-600 mb-4">No reviews yet.</p>
               ) : (
-                <ul className="text-sm text-gray-300 space-y-4 mb-4">
+                <ul className="text-sm text-black space-y-4 mb-4">
                   {reviews.map((r) => (
-                    <li key={r.review_id} className="pb-2 border-b border-gray-600">
+                    <li key={r.review_id} className="pb-2 border-b border-gray-300">
                       <div className="flex justify-between items-center">
-                        <span className="font-medium">{r.username} - </span>
+                        <span className="font-medium">{r.username}</span>
                         <span className="text-xs text-gray-500">
                           {new Date(r.last_edit).toLocaleString()}
                         </span>
@@ -119,19 +110,19 @@ const ReviewPanel = ({ userId, listId }) => {
                   onChange={(e) => setMyReview(e.target.value)}
                   rows={3}
                   placeholder="Leave a review..."
-                  className="w-full border border-gray-500 rounded p-2 text-black"
+                  className="w-full border border-gray-300 rounded p-2"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleSubmit}
-                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
                   >
                     {editing ? 'Update Review' : 'Submit Review'}
                   </button>
                   {editing && (
                     <button
                       onClick={handleDelete}
-                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                      className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
                     >
                       Delete
                     </button>

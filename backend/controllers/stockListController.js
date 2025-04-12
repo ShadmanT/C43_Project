@@ -36,7 +36,7 @@ exports.getAllStockLists = async (req, res) => {
 
     res.status(200).json(rows);
   } catch (err) {
-    console.error('❌ getAllStockLists failed:', err);
+    console.error('getAllStockLists failed:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -79,7 +79,7 @@ exports.createStockList = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'List created', listId });
   } catch (err) {
-    console.error('❌ createStockList failed:', err);
+    console.error('createStockList failed:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -111,7 +111,7 @@ exports.updateStockListVisibility = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Visibility updated' });
   } catch (err) {
-    console.error('❌ updateVisibility failed:', err);
+    console.error('updateVisibility failed:', err);
     res.status(500).json({ error: 'Failed to update visibility' });
   }
 };
@@ -125,9 +125,9 @@ exports.deleteStockList = async (req, res) => {
     if (result.rows.length === 0) return res.status(403).json({ error: 'Not authorized' });
 
     await pool.query(`DELETE FROM StockList WHERE list_id = $1`, [listId]);
-    res.status(204).send(); // No content, frontend checks for 204 or 200
+    res.status(204).send();
   } catch (err) {
-    console.error('❌ deleteStockList failed:', err);
+    console.error('deleteStockList failed:', err);
     res.status(500).json({ error: 'Delete failed' });
   }
 };
@@ -161,7 +161,7 @@ exports.shareStockListWithFriend = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'List shared successfully' });
   } catch (err) {
-    console.error('❌ shareStockListWithFriend failed:', err);
+    console.error('shareStockListWithFriend failed:', err);
     res.status(500).json({ error: 'Could not share list' });
   }
 };
@@ -185,7 +185,7 @@ exports.unshareStockList = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'List is now private' });
   } catch (err) {
-    console.error('❌ unshareStockList failed:', err);
+    console.error('unshareStockList failed:', err);
     res.status(500).json({ error: 'Failed to unshare list' });
   }
 };
@@ -212,7 +212,7 @@ exports.unshareStockListWithFriend = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Unshared successfully' });
   } catch (err) {
-    console.error('❌ unshareStockListWithFriend failed:', err);
+    console.error('unshareStockListWithFriend failed:', err);
     res.status(500).json({ error: 'Could not unshare list' });
   }
 };

@@ -49,7 +49,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while creating list.');
       }
     } catch (err) {
-      console.error('❌ Create list failed:', err.response?.data || err.message);
+      console.error('Create list failed:', err.response?.data || err.message);
       alert(`Failed to create list: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
@@ -68,7 +68,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while deleting.');
       }
     } catch (err) {
-      console.error('❌ Delete failed:', err.response?.data || err.message);
+      console.error('Delete failed:', err.response?.data || err.message);
       alert(`Failed to delete list: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
@@ -91,7 +91,7 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while sharing list.');
       }
     } catch (err) {
-      console.error('❌ Share failed:', err.response?.data || err.message);
+      console.error('Share failed:', err.response?.data || err.message);
       alert(`Failed to share list: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
@@ -110,11 +110,12 @@ const StockListPanel = ({ userId, ownedLists, sharedLists, refreshLists }) => {
         alert('Unexpected response while updating visibility.');
       }
     } catch (err) {
-      console.error('❌ Update visibility failed:', err.response?.data || err.message);
+      console.error('Update visibility failed:', err.response?.data || err.message);
       alert(`Failed to update visibility: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
 
+  // Group items by list_id
   const combinedLists = [...ownedLists, ...sharedLists];
   const grouped = {};
 
