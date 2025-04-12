@@ -1,7 +1,5 @@
-// controllers/friendController.js
 const pool = require('../db/db');
-const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
- // simulate auth
+const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1; // simulate auth
 
 exports.sendFriendRequest = async (req, res) => {
   const senderId = getUserId(req);
@@ -29,9 +27,38 @@ exports.sendFriendRequest = async (req, res) => {
 exports.getAllRequests = async (req, res) => {
   const userId = getUserId(req);
   try {
-    const incoming = await pool.query(`SELECT * FROM FriendRequest WHERE receiver_id = $1`, [userId]);
-    const outgoing = await pool.query(`SELECT * FROM FriendRequest WHERE sender_id = $1`, [userId]);
-    res.json({ incoming: incoming.rows, outgoing: outgoing.rows });
+    const incoming = await pool.query(`
+      SELECT fr.*, u.username AS sender_username
+      FROM FriendRequest fr
+      JOIN UserAccount u ON fr.sender_id = u.user_id
+      WHERE fr.receiver_id = $1 AND fr.status = 'pending'
+    `, [userId]);
+
+    const outgoing = await pool.query(`
+      SELECT fr.*, u.username AS receiver_username
+      FROM FriendRequest fr
+      JOIN UserAccount u ON fr.receiver_id = u.user_id
+      WHERE fr.sender_id = $1 AND fr.status = 'pending'
+    `, [userId]);
+
+    res.json({
+      incoming: incoming.rows,
+      outgoing: outgoing.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+exports.getPendingRequests = async (req, res) => {
+  const userId = getUserId(req);
+  try {
+    const result = await pool.query(
+      `SELECT * FROM FriendRequest WHERE receiver_id = $1 AND status = 'pending'`,
+      [userId]
+    );
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
