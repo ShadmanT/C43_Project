@@ -6,30 +6,29 @@ const router = express.Router();
 const getUserId = (req) => parseInt(req.headers['x-user-id']) || 1;
 
 router.post('/create', async (req, res) => {
-    const userId = getUserId(req);
-    const { name } = req.body;
+  const userId = getUserId(req);
+  const { name } = req.body;
 
-    if (!name || name.trim() === '') {
-        return res.status(400).json({ error: 'Portfolio name is required' });
-    }
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ error: 'Portfolio name is required' });
+  }
 
-    if (!portfolioId || isNaN(portfolioId)) {
-        return res.status(400).json({ error: 'Invalid portfolioId' });
-      }
-      
-  
-    try {
-      const result = await pool.query(
-        `INSERT INTO Portfolio (user_id, name, cash_balance)
-         VALUES ($1, $2, $3) RETURNING portfolio_id`,
-        [userId, name, 0.00]
-      );
-      res.status(201).json({ message: 'Portfolio created', portfolioId: result.rows[0].portfolio_id });
-    } catch (err) {
-      console.error('❌ Portfolio creation failed:', err);
-      res.status(500).json({ error: 'Failed to create portfolio' });
-    }
-  });
+  try {
+    const result = await pool.query(
+      `INSERT INTO Portfolio (user_id, name, cash_balance)
+       VALUES ($1, $2, $3)
+       RETURNING portfolio_id`,
+      [userId, name.trim(), 0.00]
+    );
+    res.status(201).json({
+      message: 'Portfolio created',
+      portfolioId: result.rows[0].portfolio_id
+    });
+  } catch (err) {
+    console.error('❌ Portfolio creation failed:', err);
+    res.status(500).json({ error: 'Failed to create portfolio' });
+  }
+});
   
   /**
    * POST /portfolio/deposit
@@ -355,7 +354,9 @@ router.get('/history', async (req, res) => {
               [symA, symB]
             );
             const corrVal = corrRes.rows[0]?.corr;
-            matrix[symA][symB] = corrVal ? parseFloat(corrVal).toFixed(4) : null;
+            matrix[symA][symB] = corrVal !== null && corrVal !== undefined
+            ? parseFloat(corrVal).toFixed(4)
+            : 'Not Enough Data';
           }
         }
       }
@@ -526,7 +527,6 @@ router.get('/predict', async (req, res) => {
   }
 });
 
-// Combined route: Add stock + price
 router.post('/stock/user-add', async (req, res) => {
   const { symbol, company_name, date, open, high, low, close, volume } = req.body;
 
@@ -538,34 +538,66 @@ router.post('/stock/user-add', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Step 1: Add to Stock table (if not exists)
-    await client.query(
-      `INSERT INTO Stock (symbol, company_name)
-       VALUES ($1, $2)
-       ON CONFLICT (symbol) DO NOTHING`,
-      [symbol.toUpperCase(), company_name]
+    const upperSymbol = symbol.toUpperCase();
+
+    // 1. Check if company already exists under a different symbol
+    const nameCheck = await client.query(
+      `SELECT symbol FROM Stock WHERE LOWER(company_name) = LOWER($1)`,
+      [company_name]
     );
 
-    // Step 2: Add to StockPrice table
+    if (nameCheck.rows.length > 0 && nameCheck.rows[0].symbol !== upperSymbol) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: `Company '${company_name}' is already registered under the symbol '${nameCheck.rows[0].symbol}'.`
+      });
+    }
+
+    // 2. Check if symbol already exists with a different company
+    const symbolCheck = await client.query(
+      `SELECT company_name FROM Stock WHERE symbol = $1`,
+      [upperSymbol]
+    );
+
+    if (symbolCheck.rows.length > 0) {
+      const existingName = symbolCheck.rows[0].company_name;
+      if (existingName.toLowerCase() !== company_name.toLowerCase()) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: `Symbol '${upperSymbol}' is already registered to '${existingName}', not '${company_name}'.`
+        });
+      }
+    }
+
+    // 3. Insert stock if it doesn't already exist
+    if (symbolCheck.rows.length === 0) {
+      await client.query(
+        `INSERT INTO Stock (symbol, company_name)
+         VALUES ($1, $2)`,
+        [upperSymbol, company_name]
+      );
+    }
+
+    // 4. Insert stock price
     await client.query(
       `INSERT INTO StockPrice (symbol, date, open, high, low, close, volume)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [symbol.toUpperCase(), date, open, high, low, close, volume]
+      [upperSymbol, date, open, high, low, close, volume]
     );
 
     await client.query('COMMIT');
     res.status(201).json({ message: 'Stock and price data added' });
+
   } catch (err) {
     await client.query('ROLLBACK');
     if (err.code === '23505') {
       return res.status(400).json({ error: 'Duplicate price entry for this symbol/date' });
     }
-    console.error('❌ Full stock add failed:', err);
+    console.error('Full stock add failed:', err);
     res.status(500).json({ error: 'Failed to add stock and price data' });
   } finally {
     client.release();
   }
 });
-
 
 module.exports = router;

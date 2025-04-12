@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
+import NavBar from './components/NavBar';
+
 import PortfolioView from './components/PortfolioView';
 import PortfolioStats from './components/PortfolioStats';
 import TradeForm from './components/TradeForm';
@@ -8,6 +11,12 @@ import PredictionGraph from './components/PredictionGraph';
 import HistoryViewer from './components/HistoryViewer';
 import StockListPanel from './components/StockListPanel';
 import ShareListsWithFriends from './components/ShareListsWithFriends';
+
+import PortfolioPage from './pages/PortfolioPage';
+import TradingPage from './pages/ManageFundsPage';
+import StatsPage from './pages/StatsPage';
+import StockAnalysis from './pages/StockAnalysis';
+import AddStockPage from './pages/AddStockPage';
 
 import axios from 'axios';
 
@@ -54,44 +63,54 @@ function App() {
   }, [userId]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {!userId ? (
-        <>
-          <LoginForm setUserId={setUserId} />
-          <hr />
-          <RegisterForm onRegister={setUserId} />
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-gray-500 mb-2">Logged in as user {userId}</p>
-
-          <StockListPanel
-            userId={userId}
-            ownedLists={ownedLists}
-            sharedLists={sharedLists}
-          />
-
-          <ShareListsWithFriends
-            userId={userId}
-            ownedLists={ownedLists}
-          />
-
-          <TradeForm
-            userId={userId}
-            portfolios={portfolios}
-            refreshPortfolios={refreshPortfolios}
-          />
-          <hr />
-          <PortfolioView portfolios={portfolios} />
-          <hr />
-          <PortfolioStats userId={userId} />
-          <hr />
-          <HistoryViewer />
-          <hr />
-          <PredictionGraph userId={userId} portfolios={portfolios} />
-        </>
-      )}
-    </div>
+    <Router>
+      <div>
+        {!userId ? (
+          <>
+            <LoginForm setUserId={setUserId} />
+            <hr />
+            <RegisterForm onRegister={setUserId} />
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 mb-2">Logged in as user {userId}</p>
+            <button onClick={() => setUserId(null)}>Log Out</button>
+            <NavBar />
+            <Routes>
+              <Route
+                path="/portfolio"
+                element={<PortfolioPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
+              />
+              <Route
+                path="/manage"
+                element={<TradingPage userId={userId} portfolios={portfolios} refreshPortfolios={refreshPortfolios} />}
+              />
+              <Route
+                path="/stats"
+                element={<StatsPage userId={userId} />}
+              />
+              <Route
+                path="/data"
+                element={<StockAnalysis userId={userId} portfolios={portfolios} />}
+              />
+              <Route
+                path="/add-stock"
+                element={<AddStockPage userId={userId} />}
+              />
+              <Route
+                path="/stocklists"
+                element={
+                  <>
+                    <StockListPanel userId={userId} ownedLists={ownedLists} sharedLists={sharedLists} />
+                    <ShareListsWithFriends userId={userId} ownedLists={ownedLists} />
+                  </>
+                }
+              />
+            </Routes>
+          </>
+        )}
+      </div>
+    </Router>
   );
 }
 

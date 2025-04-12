@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const TradeForm = ({ userId, portfolios, refreshPortfolios }) => {
+const ManageFundsForm = ({ userId, portfolios, refreshPortfolios }) => {
   const [portfolioId, setPortfolioId] = useState('');
   const [action, setAction] = useState('deposit');
   const [amount, setAmount] = useState('');
@@ -16,30 +16,47 @@ const TradeForm = ({ userId, portfolios, refreshPortfolios }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       if (action === 'deposit' || action === 'withdraw') {
+        if (parseFloat(amount) <= 0 || isNaN(parseFloat(amount))) {
+          alert("Amount must be a positive number.");
+          return;
+        }
+
         await axios.post(`http://localhost:3000/api/portfolio/${action}`, {
           portfolioId,
           amount: parseFloat(amount)
         });
       } else if (action === 'buy' || action === 'sell') {
+        if (!symbol.trim()) {
+          alert("Stock symbol cannot be empty.");
+          return;
+        }
+
+        const sharesNum = parseInt(shares);
+        if (sharesNum <= 0 || isNaN(sharesNum) || !Number.isInteger(sharesNum)) {
+          alert("Number of shares must be a positive whole number.");
+          return;
+        }
+
         await axios.post(`http://localhost:3000/api/portfolio/${action === 'buy' ? 'add-stock' : 'sell-stock'}`, {
           portfolioId,
-          symbol,
-          numShares: parseInt(shares)
+          symbol: symbol.toUpperCase(),
+          numShares: sharesNum
         });
       }
 
       alert(`${action} successful`);
-      refreshPortfolios(); // auto refresh after success
+      refreshPortfolios();
 
       // clear form inputs
       setAmount('');
       setSymbol('');
       setShares('');
     } catch (err) {
-      console.error(`${action} failed`, err);
-      alert(`${action} failed`);
+      const msg = err?.response?.data?.error || `${action} failed due to server error.`;
+      alert(msg);
     }
   };
 
@@ -100,4 +117,4 @@ const TradeForm = ({ userId, portfolios, refreshPortfolios }) => {
   );
 };
 
-export default TradeForm;
+export default ManageFundsForm;
