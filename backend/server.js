@@ -1,4 +1,8 @@
+require('dotenv').config({ path: __dirname + '/.env' });
+
 console.log("✅ stockListRoutes.js loaded");
+console.log("DB_USER:", process.env.DB_USER);
+console.log("DB_PASS:", process.env.DB_PASS);
 
 const express = require('express');
 const cors = require('cors');
@@ -6,7 +10,9 @@ const authRoutes = require('./routes/auth');
 const stockListRoutes = require('./routes/stockListRoutes');
 const friendRoutes = require('./routes/friendRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
-require('dotenv').config();
+const reviewRoutes = require('./routes/reviewRoutes');
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +23,7 @@ app.use('/auth', authRoutes);
 app.use('/api/stocklists', stockListRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 const pool = require('./db'); 
 
