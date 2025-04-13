@@ -270,136 +270,135 @@ router.get('/history', async (req, res) => {
       console.error('Historical price fetch failed:', err);
       res.status(500).json({ error: 'Could not retrieve historical prices' });
     }
-  });
+});
 
-  router.get('/stats', async (req, res) => {
-    const { portfolioId } = req.query;
-    
-    // check if we have a valid portfolio ID
-    if (!portfolioId || isNaN(portfolioId)) {
-      return res.status(400).json({ error: 'Invalid portfolioId' });
-    }
-    
-    // get all symbols in portfolio
-    try {
-      const symbolsResult = await pool.query(
-        `SELECT symbol FROM PortfolioHolding WHERE portfolio_id = $1`,
-        [portfolioId]
-      );
+router.get('/stats', async (req, res) => {
+  const { portfolioId } = req.query;
   
-      const symbols = symbolsResult.rows.map(r => r.symbol); // get each stock symbol from query above
-      const stats = {}; // to hold stats per symbol
-      const matrix = {}; // will hold correlation matrix bn symbols
+  // check if we have a valid portfolio ID
+  if (!portfolioId || isNaN(portfolioId)) {
+    return res.status(400).json({ error: 'Invalid portfolioId' });
+  }
   
-      // calculate market average close per day
-      // we do this by taking the average of all stock close prices for each data
-      const marketRes = await pool.query(`
-        SELECT date, AVG(close) AS market_close
-        FROM StockPrice
-        WHERE close IS NOT NULL
-        GROUP BY date
-      `);
+  // get all symbols in portfolio
+  try {
+    const symbolsResult = await pool.query(
+      `SELECT symbol FROM PortfolioHolding WHERE portfolio_id = $1`,
+      [portfolioId]
+    );
 
-      // lookup map of market average for a given date
-      const marketMap = new Map(marketRes.rows.map(r => [r.date.toISOString().split('T')[0], parseFloat(r.market_close)]));
-  
-      // build correlation matrix and compute stats per symbol
-      for (let i = 0; i < symbols.length; i++) { // loop through each stock symbol in the portfolio
-        const symA = symbols[i];
-        stats[symA] = {}; //initialize to store stats for current symbol
-  
-        // get price history for the stock, to calculate COV, beta and returns
-        const priceRes = await pool.query(`
-          SELECT date, close FROM StockPrice
-          WHERE symbol = $1 AND close IS NOT NULL
-          ORDER BY date
-        `, [symA]);
-  
-        const returns = []; // for daily returns for the stock
-        const marketReturns = []; // to store daily returns for the market
-  
-        // compute stock returns and market returns
-        for (let j = 1; j < priceRes.rows.length; j++) { // loop through the price history and compute returns
-          const prev = priceRes.rows[j - 1]; // previous day price
-          const curr = priceRes.rows[j]; // current dat price
-          const dateStr = curr.date.toISOString().split('T')[0];
-          
-          // computing daily log returns for stock and market
-          const stockReturn = Math.log(curr.close / prev.close);
-          const marketPrev = marketMap.get(prev.date.toISOString().split('T')[0]);
-          const marketCurr = marketMap.get(dateStr);
-  
-          if (marketPrev && marketCurr && marketPrev > 0 && marketCurr > 0) {
-            const marketReturn = Math.log(marketCurr / marketPrev);
-            returns.push(stockReturn);
-            marketReturns.push(marketReturn);
-          }
-        }
-  
-        // compute average return and standard deviation
-        const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0; // avg return for hte stock
-        const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length); // std dev of stock returns
+    const symbols = symbolsResult.rows.map(r => r.symbol); // get each stock symbol from query above
+    const stats = {}; // to hold stats per symbol
+    const matrix = {}; // will hold correlation matrix bn symbols
 
-        // COV = std / avg (if avg != 0)
-        const cov = avg !== 0 ? std / avg : null;
+    // calculate market average close per day
+    // we do this by taking the average of all stock close prices for each data
+    const marketRes = await pool.query(`
+      SELECT date, AVG(close) AS market_close
+      FROM StockPrice
+      WHERE close IS NOT NULL
+      GROUP BY date
+    `);
 
+    // lookup map of market average for a given date
+    const marketMap = new Map(marketRes.rows.map(r => [r.date.toISOString().split('T')[0], parseFloat(r.market_close)]));
 
-        // calculating Beta using the correlation with market
-        const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length; // avg returns of the market
-        const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length); // std of market returns
-  
-        // correlation between stock and market
-        let corr = 0;
-        if (returns.length === marketReturns.length && returns.length > 1) {
-          const numerator = returns.map((r, i) => (r - avg) * (marketReturns[i] - meanMarket)).reduce((a, b) => a + b, 0);
-          const denominator = returns.length * std * stdMarket;
-          corr = denominator !== 0 ? numerator / denominator : 0;
-        }
+    // build correlation matrix and compute stats per symbol
+    for (let i = 0; i < symbols.length; i++) { // loop through each stock symbol in the portfolio
+      const symA = symbols[i];
+      stats[symA] = {}; //initialize to store stats for current symbol
+
+      // get price history for the stock, to calculate COV, beta and returns
+      const priceRes = await pool.query(`
+        SELECT date, close FROM StockPrice
+        WHERE symbol = $1 AND close IS NOT NULL
+        ORDER BY date
+      `, [symA]);
+
+      const returns = []; // for daily returns for the stock
+      const marketReturns = []; // to store daily returns for the market
+
+      // compute stock returns and market returns
+      for (let j = 1; j < priceRes.rows.length; j++) { // loop through the price history and compute returns
+        const prev = priceRes.rows[j - 1]; // previous day price
+        const curr = priceRes.rows[j]; // current dat price
+        const dateStr = curr.date.toISOString().split('T')[0];
         
-        // computing beta 
-        const beta = corr * (std / stdMarket);
-  
-        stats[symA] = {
-          average: avg.toFixed(4),
-          stddev: std.toFixed(4),
-          cov: cov ? cov.toFixed(4) : null,
-          beta: isFinite(beta) ? beta.toFixed(4) : null
-        };
-  
-        // computing row of correlation matrix for symA
-        matrix[symA] = {};
-        for (let j = 0; j < symbols.length; j++) {
-          const symB = symbols[j];
-          if (symA === symB) {
-            matrix[symA][symB] = "1.0000";
-          } else {
-            const corrRes = await pool.query(
-              `SELECT CORR(a.close, b.close) AS corr
-               FROM StockPrice a
-               JOIN StockPrice b ON a.date = b.date
-               WHERE a.symbol = $1 AND b.symbol = $2 AND a.close IS NOT NULL AND b.close IS NOT NULL`,
-              [symA, symB]
-            );
-            const corrVal = corrRes.rows[0]?.corr;
-            matrix[symA][symB] = corrVal !== null && corrVal !== undefined
-            ? parseFloat(corrVal).toFixed(4)
-            : 'Not Enough Data';
-          }
+        // computing daily log returns for stock and market
+        const stockReturn = Math.log(curr.close / prev.close);
+        const marketPrev = marketMap.get(prev.date.toISOString().split('T')[0]);
+        const marketCurr = marketMap.get(dateStr);
+
+        if (marketPrev && marketCurr && marketPrev > 0 && marketCurr > 0) {
+          const marketReturn = Math.log(marketCurr / marketPrev);
+          returns.push(stockReturn);
+          marketReturns.push(marketReturn);
         }
       }
-  
-      res.json({
-        portfolioId: parseInt(portfolioId),
-        stats,
-        correlationMatrix: matrix
-      });
-  
-    } catch (err) {
-      console.error('Portfolio stats failed:', err);
-      res.status(500).json({ error: 'Could not calculate stats' });
-    }
-  });  
 
+      // compute average return and standard deviation
+      const avg = returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) : 0; // avg return for hte stock
+      const std = Math.sqrt(returns.map(r => Math.pow(r - avg, 2)).reduce((a, b) => a + b, 0) / returns.length); // std dev of stock returns
+
+      // COV = std / avg (if avg != 0)
+      const cov = avg !== 0 ? std / avg : null;
+
+
+      // calculating Beta using the correlation with market
+      const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length; // avg returns of the market
+      const stdMarket = Math.sqrt(marketReturns.map(r => Math.pow(r - meanMarket, 2)).reduce((a, b) => a + b, 0) / marketReturns.length); // std of market returns
+
+      // correlation between stock and market
+      let corr = 0;
+      if (returns.length === marketReturns.length && returns.length > 1) {
+        const numerator = returns.map((r, i) => (r - avg) * (marketReturns[i] - meanMarket)).reduce((a, b) => a + b, 0);
+        const denominator = returns.length * std * stdMarket;
+        corr = denominator !== 0 ? numerator / denominator : 0;
+      }
+      
+      // computing beta 
+      const beta = corr * (std / stdMarket);
+
+      stats[symA] = {
+        average: avg.toFixed(4),
+        stddev: std.toFixed(4),
+        cov: cov ? cov.toFixed(4) : null,
+        beta: isFinite(beta) ? beta.toFixed(4) : null
+      };
+
+      // computing row of correlation matrix for symA
+      matrix[symA] = {};
+      for (let j = 0; j < symbols.length; j++) {
+        const symB = symbols[j];
+        if (symA === symB) {
+          matrix[symA][symB] = "1.0000";
+        } else {
+          const corrRes = await pool.query(
+            `SELECT CORR(a.close, b.close) AS corr
+              FROM StockPrice a
+              JOIN StockPrice b ON a.date = b.date
+              WHERE a.symbol = $1 AND b.symbol = $2 AND a.close IS NOT NULL AND b.close IS NOT NULL`,
+            [symA, symB]
+          );
+          const corrVal = corrRes.rows[0]?.corr;
+          matrix[symA][symB] = corrVal !== null && corrVal !== undefined
+          ? parseFloat(corrVal).toFixed(4)
+          : 'Not Enough Data';
+        }
+      }
+    }
+
+    res.json({
+      portfolioId: parseInt(portfolioId),
+      stats,
+      correlationMatrix: matrix
+    });
+
+  } catch (err) {
+    console.error('Portfolio stats failed:', err);
+    res.status(500).json({ error: 'Could not calculate stats' });
+  }
+});  
 
 
 // adds new stock price data
@@ -424,7 +423,7 @@ router.post('/stockprice/add', async (req, res) => {
       console.error('Insert stock data failed:', err);
       res.status(500).json({ error: 'Insert failed' });
     }
-  });
+});
 
   
 // sells stock from a portfolio and adds proceeds to cash
@@ -490,7 +489,7 @@ router.post('/sell-stock', async (req, res) => {
       console.error('Sell stock failed:', err);
       res.status(500).json({ error: 'Sell stock failed' });
     }
-  });  
+});  
 
 // returns linear regression-based close price prediction
 // /api/portfolio/predict?symbol=AAPL&days=30
